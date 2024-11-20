@@ -1,0 +1,295 @@
+#+TITLE: Configuración de Emacs babelizada: PERSONAL
+
+* CONFIGURACIÓN PERSONAL EMACS (WSL2)
+
+** CONFIG. WSL2
+Configuraciones útiles a la hora de ejecutar Emacs dentro de WSL2 en Windows.
+
+#+begin_src emacs-lisp :tangle wsl-init.el :comments no
+  ;; Permite hacer copy/paste entre Windows e Emacs: https://www.lukas-barth.net/blog/emacs-wsl-copy-clipboard/
+  (setq select-active-regions nil)
+
+  ;; Abre las URLs con Firefox: https://hkvim.com/post/windows-setup/
+  (defun wsl-browse-url-xdg-open (url &optional ignored)
+    (interactive (browse-url-interactive-arg "URL: "))
+    (shell-command-to-string (concat "wslview " url)))
+
+  (advice-add #'browse-url-xdg-open :override #'wsl-browse-url-xdg-open)
+
+  ;; Windows host copy
+  (defun wsl-copy (start end)
+    (interactive "r")
+    (shell-command-on-region start end "clip.exe")
+    (deactivate-mark))
+
+  ;; Windows host paste
+  (defun wsl-paste ()
+    (interactive)
+    (let ((clipboard
+	   (shell-command-to-string "powershell.exe -command 'Get-Clipboard' 2> /dev/null")))
+      (setq clipboard (replace-regexp-in-string "\r" "" clipboard)) ; Remove Windows ^M characters
+      (setq clipboard (substring clipboard 0 -1)) ; Remove newline added by Powershell
+      (insert clipboard)))
+
+  ;; Atajos copy-paste de Windows
+  (general-def
+    :prefix "C-c w"
+    "c" 'wsl-copy
+    "v" 'wsl-paste)
+#+end_src
+
+** DIRECTORIOS
+
+*** PROJECTILE: Directorio de proyectos
+#+begin_src emacs-lisp :tangle wsl-init.el :comments no
+  (setq projectile-project-search-path '("~/projects"))
+#+end_src
+
+** INTERFAZ
+
+
+*** ZONE: SALVAPANTALLAS
+Aquí empezó todo.
+
+#+begin_src emacs-lisp :tangle wsl-init.el :comments no
+  (use-package zone
+    :config
+
+    ;; Activa el salvapantallas tras 10 minutos de inactividad
+    (zone-when-idle 600))
+#+end_src
+
+**** ZONE-BAD-APPLE
+
+#+begin_src emacs-lisp
+  ;; Carga fichero salvapantallas custom BAD APPLE
+  (defun zone-bad-apple ()
+
+  ;; zone-mode buffer and animation setup
+  (zone-fill-out-screen (window-width) (window-height))
+  (insert-file-contents "~/.config/emacs/zone-bad-apple/badapple")
+  (set-window-margins nil 27 27)
+  (face-remap-add-relative 'default :height 185)
+  (setq z 1)
+
+  ;; Animation loop
+  (while (not (input-pending-p))
+    ;; Checks for last frame
+    (if (< z 203701)
+
+	;; Scrolls to the next frame
+        (progn
+	  (setq z (+ z 31))
+          (scroll-up 31))
+
+      ;; Goes back to the beginning
+      (progn
+	(setq z 1)
+	(goto-char (point-min))))
+
+    ;; Delay between frames. Wait time might need to be changed for smooth animation.
+    (zone-park/sit-for (point-min) 0.027))
+)
+
+  ;; Asigna el salvapantallas como único a usar
+  (setq zone-programs [zone-bad-apple])
+#+end_src
+
+*** TRANSPARENCIA
+Funciona solo en emacs-gtk.
+
+#+begin_src emacs-lisp :tangle wsl-init.el :comments no
+  (set-frame-parameter nil 'alpha-background 80)
+  (add-to-list 'default-frame-alist '(alpha-background . 80))
+#+end_src
+
+** ORG
+
+*** PLANTILLAS DE ORG-CAPTURE
+
+#+begin_src emacs-lisp :tangle wsl-init.el :comments no
+  (setq org-capture-templates
+      (append org-capture-templates '(("f" "New Recipe" entry (file+headline "~/org/gtd/gtd.org" "Recetas")
+				       "****  %?\n***** Ingredientes:\n\n\n***** Preparación:\n\n"
+				       :empty-lines-after 1)
+				      ("k" "Celeste map" entry (file+headline "~/projects/Streamer.Bot Integrations/sj2021-gm.org" "Grandmaster Lobby")
+				       "*** %^{Level name:} %^{Difficulty}p %^{Authors}p"
+				       :empty-lines-after 1))))
+#+end_src
+
+**** [X] JOB SCRAPER
+
+#+begin_src emacs-lisp
+  (defun org-capture-jobhunt-linkedin-template ()
+  (interactive)
+  "Prompts for a URL, returns a filled org-capture template with content scrapped using EWW."
+  
+  (defvar url nil
+    "URL for the Linkedin job offer.")
+
+  (defvar offer-name nil
+      "Short description to show as name of the offer.")
+
+  (defvar company-name nil
+      "Name of hiring company.")
+
+  (defvar job-location nil
+    "Place the job is offered at.")
+
+  (defvar recruiter-name nil
+    "Name of the recruiter responsible for the offer.")
+
+  (defvar job-description nil
+      "Job description posted in the offer.")
+
+  (defvar result nil
+    "Org text that gets sent to org-capture.")
+
+
+  ;; Pide a usuario URL de oferta, extrae ID de oferta y forma URL simple
+  (setq url (org-capture-jobhunt-linkedin-generate-url (read-string "Enter LinkedIn job offer URL: ")))
+
+  ;; Abre el navegador
+  (eww url)
+  
+  (sit-for 1)
+  (eww-view-source)
+  (sit-for 0.5)
+      
+  ;; Extrae datos de la página
+  ;; Regex busca unico h1, contiene nombre
+  (goto-char (point-min))
+  (when (re-search-forward "<h1[^>]*>\\(.*?\\)</h1>" nil t)
+    (setq offer-name
+	  (substring-no-properties (replace-regexp-in-string "%" "%%" (match-string 1)))))
+  
+  ;; Regex busca <a> con el nombre de la empresa contratadora
+  (goto-char (point-min))
+  (when (re-search-forward "<a[^>]*class=\"topcard__org-name-link[^>]*>\\(\\(.\\|\n\\)*?\\)</a>" nil t)
+    (setq company-name
+	  (string-trim(substring-no-properties (replace-regexp-in-string "%" "%%" (match-string 1))))))
+  
+  ;; Regex busca <span> con la ubicación del centro de trabajo
+  (goto-char (point-min))
+  (when (re-search-forward "<span[^>]*class=\"topcard__flavor topcard__flavor--bullet\">\\(\\(.\\|\n\\)*?\\)</span>" nil t)
+    (setq job-location
+	  (string-trim(substring-no-properties (replace-regexp-in-string "%" "%%"(match-string 1))))))
+
+  (goto-char (point-min))
+  (when (re-search-forward "<a[^>]*data-tracking-control-name=\"public_jobs\"[^>]*>\\(?:.\\|\n\\)*?<span class=\"sr-only\">\\(\\(.\\|\n\\)*?\\)<!---->\\(?:.\\|\n\\)*?</span>\\(?:.\\|\n\\)*?</a>" nil t)
+    (setq recruiter-name
+	  (string-trim(substring-no-properties (replace-regexp-in-string "%" "%%"(match-string 1))))))
+
+  (goto-char (point-min))
+  (when (re-search-forward "<div[^>]*class=\"show-more-less-html__markup\\(?:.\\|\n\\)*?>\\(\\(.\\|\n\\)*?\\)</div>" nil t)
+    (setq job-description
+	  (string-trim(substring-no-properties (replace-regexp-in-string "%" "%%"
+					        (replace-regexp-in-string "<[^>]+>" "" 
+					         (replace-regexp-in-string "\\(?:\n\\* \\|<li>\\)" "\n- "
+					          (replace-regexp-in-string "<p>" "\n" (match-string 1)))))))))
+  
+  ;; Concatena el texto Org
+  (setq result (format (concat "*** TODO %s: %s\n"
+			       ":PROPERTIES:\n\n"
+			       ":COMPANY:       %s\n"
+			       ":AT:            %s\n"
+			       ":LINKEDIN-URL:  [[%s][%s]]\n"
+			       ":RECRUITER:     %s\n\n"
+			       ":CV-SEND-DATE:  \n\n"
+			       ":END:\n\n"
+			       "%s\n")
+		       company-name offer-name
+		       company-name
+		       job-location
+		       url offer-name
+		       recruiter-name
+		       job-description)))
+
+
+(defun org-capture-jobhunt-linkedin-generate-url (url)
+  "Converts full URL for a LinkedIn job offer to short URL pointing to said job offer."
+  (let
+      ((offer-id (cadr (assoc "https://www.linkedin.com/jobs/collections/recommended/?currentJobId" (url-parse-query-string url)))))
+    (if offer-id
+        (format "https://www.linkedin.com/jobs/view/%s#main-content" offer-id)
+      (error "No se encontró el parámetro 'currentJobId' en la URL"))))
+  
+  (setq org-capture-templates
+      (append org-capture-templates '(("j" "Job Hunting templates")
+				      ("jl" "Job Hunt entry (LinkedIn)" entry (file+headline "~/org/gtd/JobHunt.org" "Candidaturas")
+				       (function org-capture-jobhunt-linkedin-template)
+				       :empty-lines-after 2))))
+  
+#+end_src
+
+*** ORG-JOURNAL
+Diario personal y configurable usando org-mode.
+- =org-journal-dir= determina directorio de ficheros de diario.
+
+#+begin_src emacs-lisp :tangle wsl-init.el :comments no
+  (use-package org-journal
+    :preface
+    (setq org-journal-dir "~/documents/personal/journal/"))
+#+end_src
+
+**** Ficheros del diario
+1 fichero de diario por mes. Todos los ficheros se encriptan usando GPG.
+
+#+begin_src emacs-lisp :tangle wsl-init.el :comments no
+  (setq org-journal-file-type 'monthly)
+  (setq org-journal-encrypt-journal t)
+
+  ;; Org-journal trata de cargar las notas del diario al visualizar el calendario.
+  ;; No quiero que desencripte mi diario CADA VEZ que voy a poner una timestamp, thx.
+  (remove-hook 'calendar-today-visible-hook 'org-journal-mark-entries)
+  (remove-hook 'calendar-today-invisible-hook 'org-journal-mark-entries)
+#+end_src
+
+**** Interfaz del diario
+El diario siempre se abre ocupando todo el frame.
+
+El resto de variables indican el formato de las entradas del diario.
+
+#+begin_src emacs-lisp :tangle wsl-init.el :comments no
+  (setq org-journal-find-file 'find-file
+	org-journal-file-format "%Y-%m.org"
+	org-journal-date-prefix "* 󰠮 󰸗 "
+	org-journal-date-format "%a. %Y/%m/%d"
+	org-journal-time-prefix "** "
+	org-journal-time-format "󱦺 %R  "
+	org-journal-time-format-post-midnight "󱦻 %R  ")
+#+end_src
+
+** ATAJOS DE TECLADO
+
+*** SALVAPANTALLAS: =C-c z=
+#+begin_src emacs-lisp :tangle wsl-init.el :comments no
+  (general-def
+    "C-c z"    'zone)
+#+end_src
+
+*** ORG-JOURNAL
+#+begin_src emacs-lisp :tangle wsl-init.el :comments no
+  (general-def
+      :prefix "C-c j"
+      "" '(:ignore t :which-key "org-journal")
+      "n" 'org-journal-new-entry
+      "o" 'org-journal-open-current-journal-file
+      "s" 'org-journal-search)
+#+end_src
+
+** VARIABLES LOCALES
+
+Este código se ejecuta *al abrir este fichero de configuración*, y permite que la configuración se auto-exporte a los ficheros que usa Emacs al guardarse.
+
+Se puede añadir un código similar a la config para que esto sea así con todos los ficheros Org. Pero quiero mantenerlo especifico en los ficheros de Init así que así se va a quedar..
+
+# Local Variables:
+# eval: (progn
+#         (setq my-tangle-hook
+#               (lambda () (when (string-equal (buffer-file-name) (expand-file-name "~/.config/emacs/wsl-init.org"))
+#                            (org-babel-tangle))))
+#         (add-hook 'after-save-hook my-tangle-hook nil t)
+#         (add-hook 'kill-buffer-hook
+#                   (lambda () (remove-hook 'after-save-hook my-tangle-hook)) nil t))
+# End:
