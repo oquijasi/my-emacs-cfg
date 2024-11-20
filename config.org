@@ -1,0 +1,791 @@
+#+TITLE: Configuración de Emacs babelizada
+
+* EMACS CONFIG
+Los bloques de código de dentro de este fichero están configurados para que, al guardarse este fichero, se construya una serie de archivos a partir de ellos que serán los *ficheros de configuración de Emacs*. Estos ficheros se ejecutan al iniciarse Emacs realizando toda la configuración.
+
+Salvo que se especifique con una propiedad de tipo =header-args=, los bloques de código irán a init.el.
+
+
+** CONFIGURACIÓN PRE-CARGA
+
+El fichero =early-init.el= nos permite cargar configuraciones incluso antes de que se inicialicen ciertos aspectos fundamentales de Emacs, como los paquetes y el sistema gráfico.
+
+
+*** Desactivar autorun del gestor de paquetes
+
+Desactivamos la carga automática de paquetes al inicio ya que el gestor de paquetes se configura en init.
+
+#+begin_src emacs-lisp :tangle early-init.el :comments no
+  (setq package-enable-at-startup nil)
+#+end_src
+*** UTF-8 como codificación de texto por defecto
+
+#+begin_src emacs-lisp :tangle early-init.el :comments no
+  (set-language-environment 'utf-8)
+  (set-default-coding-systems 'utf-8)
+  (set-keyboard-coding-system 'utf-8-unix)
+  (set-terminal-coding-system 'utf-8-unix)
+#+end_src
+
+*** Declutter de la interfaz
+
+Desactivamos los elementos de la interfaz aquí para que no se lleguen a cargar.
+
+#+begin_src emacs-lisp :tangle early-init.el :comments no
+  (menu-bar-mode -1)                     ; Barra del menú
+  (tool-bar-mode -1)                     ; Barra de herramientas
+  (scroll-bar-mode -1)                   ; Scrollbar
+  (tooltip-mode -1)                      ; Tooltips
+#+end_src
+
+** GESTIÓN DE PAQUETES
+
+
+*** Repositorios de paquetes
+
+Para instalar paquetes se necesita cargar el paquete interno =package= e inicializarlo apuntando a los paquetes de repositorios que vayamos a usar.
+
+En mi caso el repositorio es MELPA. Existe la opción de usar package.el y bajar cada repositorio directamente del Github del autor, para mantenerse así en versiones más recientes.
+
+Tras inicializarlo le indicamos también que solo intente refrescar la lista de paquetes disponibles cuando no haya una lista de paquetes ya guardada.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (require 'package)
+  (setq package-archives'(("melpa" . "https://melpa.org/packages/")))
+  (package-initialize)
+  (unless package-archive-contents
+    (package-refresh-contents))
+#+end_src
+
+
+*** [[https://github.com/jwiegley/use-package][USE-PACKAGE]]
+
+El paquete =use-package= nos proporciona una macro =(use-package paquete [macro codigo])= que nos permite configurar nuestros paquetes de Emacs de una forma eficiente y ordenada a partir de este punto en la configuración.
+
+- Con la variable =use-package-always-ensure= puesta a =t= se asegura que los paquetes a los que referencie con =use-package= se cargarán al iniciarse Emacs (eager loading).
+  - Para no cargar paquetes específicos al inicio, podemos configurarlos con =(use-package paquete :ensure nil)=
+
+- Algunas de las macros que se pueden ver en este fichero:
+  - =:init= permite ejecutar código antes de la carga del paquete.
+  - =:config= ejecuta código después de cargar el paquete.
+  - =:after= asegura que el paquete se carga tras haber terminado la carga de los otros paquetes aquí especificados.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (unless (package-installed-p 'use-package)
+    (package-install 'use-package))
+  (require 'use-package)
+  (setq use-package-always-ensure t)
+#+end_src
+
+
+
+** NAVEGACIÓN
+
+*** EVIL: Vim motions en Emacs
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (use-package evil
+    :init
+
+    (setq evil-want-integration t
+	  evil-want-keybinding nil
+	  evil-want-C-u-scroll t
+	  evil-want-C-i-jump nil)
+    
+    :config
+    (define-key evil-insert-state-map (kbd "C-g") 'evil-normal-state)
+    (define-key evil-insert-state-map (kbd "C-h") 'evil-delete-backward-char-and-join)
+    ;; Usa los binds de la visual line fuera de sus buffers 
+    (evil-global-set-key 'motion "j" 'evil-next-visual-line)
+    (evil-global-set-key 'motion "k" 'evil-previous-visual-line)
+    (evil-set-initial-state 'messages-buffer-mode 'normal)
+    (evil-set-initial-state 'dashboard-mode 'normal)
+    ;; Por alguna razón, este comando dispara un error de invalid read syntax cuando
+    ;; se trata de evaluar el buffer tras modificarlo, sin importar que se haya guardado o no.
+    ;; La ubicación del error es siempre el fin de la expresión que contenga este comando;
+    ;; Si saco el comando de este bloque de configuración, el error se da en la línea en la que se ejecuta.
+    ;; Sin embargo solo pasa una vez tras evaluar el buffer! se puede volver a evaluar y ahí no da problemas.
+    ;; Weird shit
+    ;; TODO find cause, fix?
+    (evil-mode 1))
+
+  (use-package evil-collection
+      :after evil
+      :config
+      (evil-collection-init))
+#+end_src
+
+
+*** DIRED: Exporador de ficheros de Emacs
+**** Ocultar ficheros no interesantes
+Oculta ficheros denominados como "no interesantes": auto-saves, backups, y otros ficheros.
+
+#+BEGIN_SRC emacs-lisp :tangle init.el :comments no
+  (add-hook 'dired-mode-hook
+	    (lambda ()
+	      (dired-omit-mode)))
+#+END_SRC
+
+
+*** Historiales
+**** Historial de ficheros recientes
+
+#+BEGIN_SRC emacs-lisp :tangle init.el :comments no
+  (recentf-mode 1)
+#+END_SRC
+
+**** Historial de comandos recientes
+
+A la hora de ejecutar un comando con =M-x= o ejecutar código con =M-;= podemos usar el historial de comandos con =M-n= y =M-p= de la misma manera que lo haríamos pulsando hacia arriba o abajo en un terminal de comandos. Este historial ignora contraseñas, btw.
+
+- =history-length=: Para cada minibuffer se guardan los 10 ultimos valores usados.
+  - El default para history-length es 100, pero tiene fama de ralentizar el sistema.
+
+#+BEGIN_SRC emacs-lisp :tangle init.el :comments no
+  (setq history-length 10)
+  (savehist-mode 1)
+#+END_SRC
+
+
+*** Buffers
+**** Config general de buffers
+***** Actualizar buffers abiertos se detectan cambios
+Aplica a todos los buffers de modos que no representen directamente ficheros (Ejemplo: Dired)
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (setq global-auto-revert-non-file-buffers t)
+#+end_src
+
+**** Buffers de ficheros
+***** Actualizar buffers si se detectan cambios
+Si un fichero abierto en un buffer cambia en disco, dicho buffer se actualiza para reflejar ese cambio.
+Eso sí, si hay cambios sin guardar, pregunta antes si se quiere o no actualizar el buffer.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (global-auto-revert-mode 1)
+#+end_src
+***** Recordar ultima posición del cursor al abrir un fichero
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (save-place-mode 1)
+#+end_src
+
+
+*** Otras configuraciones
+
+**** Confirmar siempre con y o n, nunca con yes ni con no
+  
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (fset 'yes-or-no-p 'y-or-n-p)
+#+end_src
+
+**** No usar dialogs externos para ningún prompt
+Todos los prompts de input se llevarán por Emacs.
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (setq use-dialog-box nil)
+#+end_src
+
+**** El propio Emacs gestiona las requests de contraseña
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (setq epg-pinentry-mode 'loopback)
+#+end_src
+
+
+
+** AUTOCOMPLETADO
+
+*** [[https://github.com/abo-abo/swiper?tab=readme-ov-file#ivy][IVY]]: Motor sencillo con Counsel y Swiper integrados
+
+Este motor de autocompletado ofrece una interfaz sencilla de autocompletado usando minibuffers. Si se necesita un motor de búsqueda más eficiente y que ocupe la pantalla entera al parecer Helm es una buena alternativa.
+
+Ivy por sí solo nos ofrece un sistema de filtrado flexible basado en regex y que soporta varios tipos de búsqueda (fuzzy matching, substring, prefix matching...). Pero además se integra con Counsel y Swiper para ofrecer una experiencia moderadamente intuitiva y fluida.
+
+#+BEGIN_SRC emacs-lisp :tangle init.el :comments no
+  (use-package ivy
+    :config (ivy-mode))
+#+END_SRC
+
+
+*** [[https://github.com/abo-abo/swiper?tab=readme-ov-file#counsel][COUNSEL]]: El vanilla+ por excelencia
+
+Counsel mejora varias de los comandos de Emacs integrando Ivy en la interfaz que ofrece. Para activar Counsel y que se sustituyan estos comandos en cuestión basta con ejecutar =(counsel-mode)=.
+
+- Counsel viene incluido con Ivy.
+
+#+BEGIN_SRC emacs-lisp :tangle init.el :comments no
+  (use-package counsel
+    :config (counsel-mode))
+#+END_SRC
+
+
+*** [[https://github.com/Yevgnen/ivy-rich][IVY-RICH]]
+
+Mejora de interfaz de Ivy, más informativa y configurable.
+
+#+BEGIN_SRC emacs-lisp :tangle init.el :comments no
+  (use-package ivy-rich
+    :after (ivy counsel)
+    :init (ivy-rich-mode 1))
+#+END_SRC
+
+
+
+** AYUDA Y DOCUMENTACIÓN
+
+
+*** [[https://github.com/Wilfred/helpful][HELPFUL]]: Ayuda más contextual
+
+Sustituye varios de los comandos de ayuda de Emacs (y Counsel!) por otros que ofrecen información más contextual.
+
+#+BEGIN_SRC emacs-lisp :tangle init.el :comments no
+  (use-package helpful
+     :after counsel
+     :custom
+     ;; Comandos de ayuda de Counsel llamarán a las funciones de Helpful:
+     (counsel-describe-function-function #'helpful-callable)
+     (counsel-describe-variable-function #'helpful-variable)
+     :config
+     (general-def
+       [remap describe-function]      'counsel-describe-function
+       [remap describe-command]       'helpful-command
+       [remap describe-variable]      'counsel-describe-variable
+       [remap describe-key]           'helpful-key))
+#+END_SRC
+
+
+*** [[https://github.com/justbur/emacs-which-key][WHICH-KEY]]: Descripción de las acciones asociadas a keybinds
+
+Con which-key, se muestra ayuda en un minibuffer si empezamos a introducir una combinación de teclas y paramos cierto tiempo.
+- =which-key-idle-delay= indica los segundos que tarda en aparecer la ayuda de which-key.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (use-package which-key
+  :init (which-key-mode)
+  :diminish which-key-mode
+  :config
+  ;; Tiempo que tarda en aparecer la ayuda
+  (setq which-key-idle-delay 0.3))
+#+end_src
+
+
+
+** FORMATOS
+
+*** PDF-TOOLS: Lector de ficheros PDF
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (use-package pdf-tools)
+#+end_src
+
+
+
+** PROGRAMACIÓN
+
+
+*** [[https://github.com/magit/magit][MAGIT]]: CONFIGURACIÓN DE GIT
+
+El paquete Magit es un wrapper de Git para Emacs.
+- Cambiando la función de display de Magit a =magit-display-buffer-same-window-except-diff-v1=, el buffer de Magit ocupa todo el marco.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (use-package magit
+    :commands (magit-status magit-get-current-branch)
+    :custom
+    ;; Cuando visualizamos diffs en Magit, el buffer ocupa todo el frame
+    (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
+#+end_src
+
+
+*** ORG-BABEL: PROGRAMACIÓN LITERARIA
+
+**** LENGUAJES DE PROGRAMACIÓN
+
+Carga =ELisp= y =Python=.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp . t)
+     (python . t)))
+#+end_src
+
+**** SALTAR CONFIRMACIÓN PREVIA A EJECUTAR BLOQUES DE CÓDIGO
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (setq org-confirm-babel-evaluate nil)
+#+end_src
+
+
+*** PROJECTILE: GESTIÓN DE PROYECTOS
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (use-package projectile
+  :diminish projectile-mode
+  :config (projectile-mode)
+  :bind-keymap
+  ("C-c p" . projectile-command-map)
+  :init
+
+  ;; Cambiar de proyecto abre dired en el directorio del proyecto
+  (setq projectile-switch-project-action #'projectile-dired)
+
+  ;; Usa Ripgrep para búsquedas más rápidas (tiene que estar instalado en el sistema)
+  (setq	projectile-generic-command "rg --files --hidden")
+
+  ;; Usa Ivy para el autocompletado en los buffers de Projectile
+  (setq	projectile-completion-system 'ivy))
+#+end_src
+
+**** [[https://github.com/ericdanan/counsel-projectile][COUNSEL-PROJECTILE]]: Integración de Ivy en los buffers de Projectile
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (use-package counsel-projectile                                  
+    :init (counsel-projectile-mode))
+#+end_src
+
+
+*** MEJORAS VISUALES PARA LA PROGRAMACIÓN
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  ;; Muestra números de línea. Con excepciones
+  (global-display-line-numbers-mode t)
+  (dolist (mode '(org-mode-hook
+		  org-agenda-mode-hook
+		  term-mode-hook
+		  shell-mode-hook
+		  eshell-mode-hook
+		  pdf-view-mode-hook))
+    (add-hook mode (lambda() (display-line-numbers-mode 0))))
+
+  ;; Paréntesis cambian de color para mayor legibilidad
+  (use-package rainbow-delimiters
+    :hook (prog-mode . rainbow-delimiters-mode))
+#+end_src
+
+** INTERFAZ
+
+*** DOOM-MODELINE: Línea de modos mejorada
+La mode line, o línea de modos, es la línea horizontal que está en la 2ª posición empezando por abajo.
+Esta línea muestra información como el modo de Emacs en el que estamos ahora mismo.
+DOOM-ModeLine mejora visualmente la modeline y le añade información extra de utilidad.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (use-package doom-modeline
+    :init (doom-modeline-mode 1)
+    :custom ((doom-modeline-height 20)))
+
+    ;; Muestra números de columna en la modeline
+  (column-number-mode)
+
+  ;; Iconos necesarios para DOOM-ModeLine
+  (use-package all-the-icons                             
+    :if (display-graphic-p))
+#+end_src
+
+
+*** FUENTES
+Para añadir fuentes nuevas bajo Emacs en WSL2, se ha de pegar las fuentes en =~/.fonts/= y actualizar la caché de fuentes con =$fc -cache -f=.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (set-face-attribute 'default nil :family "CaskaydiaMono Nerd Font Propo" :height 150)
+#+end_src
+
+
+*** TEMAS
+Uso el tema =modus-vivendi=.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (use-package autothemer
+    :config
+    ;; Tema alto personalizable
+    ;; Para pillar más temas:
+    ;; (use-package doom-themes)
+    (load-theme 'modus-vivendi t))
+#+end_src
+
+
+*** CENTRADO DE TEXTO
+Se centra el texto para los buffers de Org y org-agenda.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (use-package olivetti
+    :config
+    (setq-default olivetti-body-width 0.8)
+    (add-hook 'org-agenda-mode-hook 'olivetti-mode)
+    (add-hook 'org-mode-hook 'olivetti-mode))
+#+end_src
+
+
+*** GOLDEN-RATIO.EL: DIVISION DE VENTANAS
+
+La ventana que se está editando se vuelve más grande que el resto automáticamente. Además, la división de ventanas tiene una proporción un poquito más normal.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (use-package golden-ratio
+    :config
+    (golden-ratio-mode 1))
+#+end_src
+
+*** OTRAS CONFIGS DE INTERFAZ
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  ;; Error de límite se comunica visualmente en lugar de con un sonido
+  (setq visible-bell t)
+  (set-fringe-mode 0)                    ; Activa los márgenes pero los esconde
+#+end_src
+
+
+
+** INICIO
+
+*** Inicio de ventana de Emacs maximizada y sin barra de título
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (add-to-list 'default-frame-alist '(fullscreen . maximized))
+  (add-to-list 'default-frame-alist '(undecorated . t))
+#+end_src
+
+
+*** ¿Qué buffer abrir al inicio?
+Si se abre en modo server, se abre org-agenda. Si se abre en modo cliente, abrir este fichero.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (add-hook 'server-after-make-frame-hook (lambda() (org-agenda nil "a")))
+  (add-hook 'emacs-startup-hook (lambda ()
+				  (unless (server-running-p)
+				    (find-file "~/.config/emacs/config.org"))))
+#+end_src
+
+
+
+** ORG: He aquí. He aquí la chicha.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+    (use-package org
+      :config
+      (setq org-directory "~/org")
+      (add-to-list 'org-modules 'org-habit))
+#+end_src
+
+
+*** ORG-AGENDA
+
+**** FICHEROS DE ORG-AGENDA
+Ficheros que se tendrán en cuenta a la hora de montar la agenda. De momento los ficheros de =~/org/gtd=.
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (setq org-agenda-files (list "~/org/gtd/inbox.org"           
+			       "~/org/gtd/gtd.org"
+			       "~/org/gtd/tickler.org"))
+#+end_src
+
+**** INTERFAZ DE LA AGENDA
+
+***** Agenda diaria
+La agenda por defecto muestra las entradas para un solo día en lugar de la agenda semanal por defecto.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (setq org-agenda-span 1
+	org-agenda-start-day "+0d")
+#+end_src
+
+***** Declutter visual
+Configuración de los elementos de la agenda que se muestran o dejan de mostrar. Además quita las lineas que muestra org-agenda por defecto para montar un horario.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  ;; Abre org-agenda sin dividir la ventana
+  (setq org-agenda-window-setup 'only-window)
+
+  ;; Declutter, quita items ya hechos o duplicados
+  (setq org-agenda-skip-timestamp-if-done t
+	org-agenda-skip-deadline-if-done t
+	org-agenda-skip-scheduled-if-done t
+	org-agenda-skip-scheduled-if-deadline-is-shown t
+	org-agenda-skip-timestamp-if-deadline-is-shown t)
+
+  ;; Quita grid de horario de la vista de agenda
+  (setq org-agenda-current-time-string ""
+	org-agenda-time-grid '((daily) () "" ""))
+#+end_src
+
+
+*** ORG-TODO
+
+- =org-use-fast-todo-selection= determina cuándo mostrar el menú de selección para org-todo. =auto= se salta este menu cuando se invoca a org-todo con argumentos de estado.
+- =org-todo-keywords= determina los posibles estados de los TODOs.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (setq
+   org-use-fast-todo-selection 'prefix
+   org-todo-keywords
+   '((sequence "TODO(t)" "|" "DONE(d)")
+     (sequence "|" "CANCELED(c)")))
+#+end_src
+
+
+*** ORG-CAPTURE
+
+- =org-default-notes-file=: Fichero destinatario de las nuevas capturas por defecto.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (setq org-default-notes-file (concat org-directory "/gtd/inbox.org"))
+#+end_src
+
+**** PLANTILLAS DE ORG-CAPTURE
+Algunas por aquí, otras por fichero externo.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (setq org-capture-templates
+	'(("t" "New TODO" entry (file+headline "~/org/gtd/inbox.org" "Sort me!")
+	   "**  TODO %?"
+	   :empty-lines-after 1)
+
+	  ("s" "New Scheduled item" entry (file+headline "~/org/gtd/inbox.org" "Sort me!")
+	   "**  %?\n SCHEDULED: %^T"
+	   :empty-lines-after 1)
+
+	  ("d" "New Deadline item" entry (file+headline "~/org/gtd/inbox.org" "Sort me!")
+	   "**  %?\n DEADLINE: %^T"
+	   :empty-lines-after 1)))
+#+end_src
+
+
+*** ORG-ROAM
+Gestor de información con backlincks basado en Emacs Lisp y sostenido por SQLite.
+
+- =org-roam-directory= para indicar la carpeta donde se guardan las notas de Roam.
+- =org-roam-completion-everywhere= a =t= activa el autocompletado de Roam para links que no son de Org. 
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (use-package org-roam
+    :custom
+    (org-roam-directory "~/org/roam")
+    (org-roam-completion-everywhere t)
+    :config
+    (org-roam-setup))
+#+end_src
+
+
+
+*** ORG-MODERN
+Mejora visual de los elementos de Org-Mode
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (use-package org-modern
+    :after org
+    :config
+    (global-org-modern-mode))
+#+end_src
+
+
+*** ORG-HABIT: Tareas repetidas
+
+*** Otras configuraciones
+
+- =org-extend-today-until=: Indicar hora específica para avanzar las entradas al día siguiente.
+  Perfecto para quedarme hasta las tantas y seguir guardando sobre el día anterior.
+- =org-hide-emphasis-markers=: Elimina *caracteres* _de_ =énfasis=.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (setq org-extend-today-until 6
+	org-hide-emphasis-markers t)
+#+end_src
+
+
+
+** ATAJOS DE TECLADO: [[https://github.com/noctuid/general.el][GENERAL.EL]] y [[https://github.com/abo-abo/hydra][HYDRA]]
+
+- [[https://github.com/noctuid/general.el][General.el]] ofrece una forma sencilla de establecer keybinds a traves de todo Emacs.
+  A lo largo de la config se definen binds con =(general-def "keybind" 'funcion["keybind2" 'funcion2[... "keybindN" 'funcionN]])=
+
+- [[https://github.com/abo-abo/hydra][Hydra]] brinda atajos stackeables: Activar una hidra permite establecer "mini-modos" con los que ejecutar otros comandos en rápida sucesión.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (use-package general)
+  (use-package hydra)
+#+end_src
+
+
+*** ATAJOS GENERALES
+Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui van atajos que aplican a todo Emacs en cuanto a funcionalidad que no encajo en otros sitios.
+
+- *CANCELAR*: =Esc=
+  Por defecto, el keybind para la función general de cancelar (=keyboard-escape-quit=), está asociada a =C-g=.
+
+  #+begin_src emacs-lisp :tangle init.el :comments no
+  (general-def
+    "<escape>" 'keyboard-escape-quit)
+  #+end_src
+
+
+*** ATAJOS DE IVY
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (general-def
+    ;; Control-F a lo bestia
+    "C-s"      'swiper
+    ;; Cambio rápido de buffer
+    "C-M-j"    'counsel-switch-buffer)
+
+  (general-def
+    :keymaps   'ivy-minibuffer-map
+    "TAB"      'ivy-alt-done
+    "C-L"      'ivy-alt-done
+    "C-j"      'ivy-next-line
+    "C-k"      'ivy-previous-line)
+
+  (general-def
+    :keymaps   'ivy-switch-buffer-map
+    "C-k"      'ivy-previous-line
+    "C-l"      'ivy-done
+    "C-d"      'ivy-switch-buffer-kill)
+
+  (general-def
+    :keymaps   'ivy-reverse-i-search-map
+    "C-k"      'ivy-previous-line
+    "C-d"      'ivy-reverse-i-search-kill)
+#+end_src
+
+
+*** ATAJOS PARA PROGRAMACIÓN
+
+**** ATAJOS DE ORG-BABEL: C-c b
+
+- =org-babel-execute-src-block-maybe= (=C-c b e c=): Ejecuta el bloque de código sobre el que esté el cursor, de ser posible.
+- =org-babel-execute-subtree= (=C-c b e s=): Ejecuta todos los bloques de código bajo un encabezado de Org.
+- =org-babel-execute-buffer= (=C-c b e b=): Ejecuta todos los bloques de código del buffer.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (general-def
+    :prefix "C-c b"
+    ""  '(:ignore t :which-key "org-babel")
+    "e" '(:ignore t :which-key "execute")
+    "ec" 'org-babel-execute-src-block-maybe
+    "es" 'org-babel-execute-subtree
+    "eb" 'org-babel-execute-buffer)
+#+end_src
+
+
+*** ATAJOS DE ORG
+
+- =org-store-link= (=C-c l=): Guarda en el kill ring un enlace a el punto sobre el que se está posicionado.
+- =org-agenda= (=C-c a=): Abre la agenda Org.
+  - Dentro de la agenda, =C-c C-x C-t= marca una tarea como completa.
+- =org-capture= (=C-c c=): Inicia org-capture para la captura de información.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (general-def
+    "C-c l" 'org-store-link
+    "C-c a" 'org-agenda
+    "C-c c" 'org-capture)
+
+  (general-def
+      :prefix "C-c n"
+      "" '(:ignore t :which-key "org-roam")
+      "l" 'org-roam-buffer-toggle
+      "f" 'org-roam-node-find
+      "i" 'org-roam-node-insert)
+
+  (general-def
+    :keymaps '(org-agenda-mode-map)
+    "C-c C-x C-t" 'org-agenda-toggle-completed)
+
+  (general-def
+      :keymaps '(org-mode-map)
+      "C-M-i"  'completion-at-point)
+#+end_src
+
+
+*** HIDRAS
+
+**** ZOOM IN/OUT: C-M-z
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (defhydra hydra-zoom (:timeout 4)
+    "scale text"
+    ("j" text-scale-increase "in")
+    ("k" text-scale-decrease "out")
+    ;; :exit a true finaliza la hydra.
+    ("f" nil "finished" :exit t))
+
+  ;; Asigna atajo a la hydra.
+  (general-def
+    "C-M-z" '(hydra-zoom/body :which-key "Zoom in or out text"))
+#+end_src
+
+
+** FUNCIONES
+
+*** FUNCIONES CUSTOM
+
+- =org-timestamp-weekdayp= acepta una fecha y devuelve T si el día de la semana especificado es laborable.
+  Útil para definir timestamps que solo apliquen bien L-V o fines de semana.
+  - Para usarlo: =SCHEDULED: <%%(org-timestamp-weekdayp date)>=
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (defun org-timestamp-weekdayp (date)
+    "Return `t` if DATE is a workday (Monday to Friday)."
+    (let ((day-of-week (calendar-day-of-week date)))
+      (member day-of-week '(1 2 3 4 5))))
+     #+end_src
+
+- =org-agenda-toggle-completed= muestra u oculta los items ya completados en la agenda.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (defun org-agenda-toggle-completed ()
+    "Toggles visibility for done TODO items."
+    (interactive)
+    (setq org-agenda-skip-timestamp-if-done (not org-agenda-skip-timestamp-if-done)
+	  org-agenda-skip-scheduled-if-done (not org-agenda-skip-scheduled-if-done)
+	  org-agenda-skip-deadline-if-done (not org-agenda-skip-deadline-if-done))
+    (org-agenda-redo))
+#+end_src
+
+
+*** ENLACES
+Definición de enlaces con acciones personalizadas.
+
+**** exec-block: EJECUTAR BLOQUES CODIGO
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (org-link-set-parameters
+   "exec-block"
+   :follow #'org-babel-ref-resolve)
+#+end_src
+
+
+** CUSTOMIZACIÓN
+Las variables customizadas se guardan en fichero aparte que se carga en inicialización.
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (setq custom-file (locate-user-emacs-file "custom-vars.el"))
+  (load custom-file 'noerror 'nomessage)
+#+end_src
+
+** CONFIGS. ESPECÍFICAS DE EQUIPO
+
+Al finalizar la ejecución del fichero init.el principal, pasamos a cargar configuraciones específicas de dispositivo.
+
+Se tienen ahora mismo 2 ficheros de config:
+- PC personal
+- PC curro
+
+#+begin_src emacs-lisp :tangle init.el :comments no
+  (cond
+   ((eq system-type 'gnu/linux)
+    (load-file "~/.emacs.d/wsl-init.el"))
+   ((eq system-type 'windows-nt)
+    (load-file "~/.emacs.d/win-init.el")))
+#+end_src
+
+** VARIABLES LOCALES
+
+Este código se ejecuta *al abrir este fichero de configuración*, y permite que la configuración se auto-exporte a los ficheros que usa Emacs al guardarse.
+
+Se puede añadir un código similar a la config para que esto sea así con todos los ficheros Org. Pero quiero mantenerlo especifico en los ficheros de Init así que así se va a quedar..
+
+# Local Variables:
+# eval: (progn
+#         (setq my-tangle-hook
+#               (lambda () (when (string-equal (buffer-file-name) (expand-file-name "~/.config/emacs/config.org"))
+#                            (org-babel-tangle))))
+#         (add-hook 'after-save-hook my-tangle-hook nil t)
+#         (add-hook 'kill-buffer-hook
+#                   (lambda () (remove-hook 'after-save-hook my-tangle-hook)) nil t))
+# End:
