@@ -61,35 +61,35 @@ Aquí empezó todo.
 
 **** ZONE-BAD-APPLE
 
-#+begin_src emacs-lisp
-  ;; Carga fichero salvapantallas custom BAD APPLE
+#+begin_src emacs-lisp :tangle wsl-init.el :comments no
   (defun zone-bad-apple ()
 
-  ;; zone-mode buffer and animation setup
-  (zone-fill-out-screen (window-width) (window-height))
-  (insert-file-contents "~/.config/emacs/zone-bad-apple/badapple")
-  (set-window-margins nil 27 27)
-  (face-remap-add-relative 'default :height 185)
-  (setq z 1)
+    ;; zone-mode buffer and animation setup
+    (zone-fill-out-screen (window-width) (window-height))
+    (setq mode-line-format nil) 
+    (insert-file-contents "~/.config/emacs/personal/zone-bad-apple/badapple")
+    (set-window-margins nil 26 26)
+    (face-remap-add-relative 'default :height 195)
+    (setq z 1)
 
-  ;; Animation loop
-  (while (not (input-pending-p))
-    ;; Checks for last frame
-    (if (< z 203701)
+    ;; Animation loop
+    (while (not (input-pending-p))
+      ;; Checks for last frame
+      (if (< z 203701)
 
-	;; Scrolls to the next frame
-        (progn
-	  (setq z (+ z 31))
-          (scroll-up 31))
+	  ;; Scrolls to the next frame
+	  (progn
+	    (setq z (+ z 31))
+	    (scroll-up 31))
 
-      ;; Goes back to the beginning
-      (progn
-	(setq z 1)
-	(goto-char (point-min))))
+	;; Goes back to the beginning
+	(progn
+	  (setq z 1)
+	  (goto-char (point-min))))
 
-    ;; Delay between frames. Wait time might need to be changed for smooth animation.
-    (zone-park/sit-for (point-min) 0.027))
-)
+      ;; Delay between frames. Wait time might need to be changed for smooth animation.
+      (zone-park/sit-for (point-min) 0.03))
+  )
 
   ;; Asigna el salvapantallas como único a usar
   (setq zone-programs [zone-bad-apple])
@@ -243,6 +243,11 @@ Diario personal y configurable usando org-mode.
   ;; No quiero que desencripte mi diario CADA VEZ que voy a poner una timestamp, thx.
   (remove-hook 'calendar-today-visible-hook 'org-journal-mark-entries)
   (remove-hook 'calendar-today-invisible-hook 'org-journal-mark-entries)
+
+  ;; Org-journal trata también de cargar las notas de todo el diario cada vez que creo una nueva entrada.
+  ;; Esto entra en conflicto con que tengo encriptados varios ficheros de diario por separado.
+  ;; De momento, voy a desactivar esta funcionalidad. No sé si la solución es agrupar el encriptado simétrico de las entradas (guardando en fichero .zip? Maybe) o montar caché de contraseñas smart que cifre con la misma pass q ha descifrado pero que no guarde el dato de la password de manera insegura.
+  (setq org-journal-carryover-items "")
 #+end_src
 
 **** Interfaz del diario

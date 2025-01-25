@@ -533,16 +533,16 @@ Algunas por aquí, otras por fichero externo.
 
 #+begin_src emacs-lisp :tangle init.el :comments no
   (setq org-capture-templates
-	'(("t" "New TODO" entry (file+headline "~/org/gtd/inbox.org" "Sort me!")
-	   "**  TODO %?"
+	'(("t" "TODO" entry (file+headline "~/org/gtd/gtd.org" "INBOX")
+	   "** TODO %?"
 	   :empty-lines-after 1)
 
-	  ("s" "New Scheduled item" entry (file+headline "~/org/gtd/inbox.org" "Sort me!")
-	   "**  %?\n SCHEDULED: %^T"
+	  ("c" "Cita" entry (file+headline "~/org/gtd/gtd.org" "INBOX")
+	   "** %?\n SCHEDULED: %^T"
 	   :empty-lines-after 1)
 
-	  ("d" "New Deadline item" entry (file+headline "~/org/gtd/inbox.org" "Sort me!")
-	   "**  %?\n DEADLINE: %^T"
+	  ("d" "TODO con deadline" entr (file+headline "~/org/gtd/gtd.org" "INBOX")
+	   "** TODO %?\n DEADLINE: %^T"
 	   :empty-lines-after 1)))
 #+end_src
 
@@ -769,7 +769,7 @@ Se tienen ahora mismo 2 ficheros de config:
 #+begin_src emacs-lisp :tangle init.el :comments no
   (cond
    ((eq system-type 'gnu/linux)
-    (load-file "~/.emacs.d/wsl-init.el"))
+    (load-file "~/.config/emacs/wsl-init.el"))
    ((eq system-type 'windows-nt)
     (load-file "~/.emacs.d/win-init.el")))
 #+end_src
