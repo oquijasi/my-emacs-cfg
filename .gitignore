@@ -1,5 +1,3 @@
-/zone/
-/org.capture-templates.el
-/early-init.el
-/init.el
-/wsl-init.el
+*.el
+*.emacs
+*~
