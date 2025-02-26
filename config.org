@@ -1,12 +1,19 @@
 #+TITLE: Configuración de Emacs babelizada
 
 * EMACS CONFIG
+:PROPERTIES:
+:header-args: elisp :tangle init.el :comments no
+:END:
+
 Los bloques de código de dentro de este fichero están configurados para que, al guardarse este fichero, se construya una serie de archivos a partir de ellos que serán los *ficheros de configuración de Emacs*. Estos ficheros se ejecutan al iniciarse Emacs realizando toda la configuración.
 
-Salvo que se especifique con una propiedad de tipo =header-args=, los bloques de código irán a init.el.
+Salvo que se especifique con una propiedad de tipo =header-args= los bloques de código irán a init.el.
 
 
 ** CONFIGURACIÓN PRE-CARGA
+:PROPERTIES:
+:header-args: elisp :tangle early-init.el :comments no
+:END:
 
 El fichero =early-init.el= nos permite cargar configuraciones incluso antes de que se inicialicen ciertos aspectos fundamentales de Emacs, como los paquetes y el sistema gráfico.
 
@@ -15,12 +22,12 @@ El fichero =early-init.el= nos permite cargar configuraciones incluso antes de q
 
 Desactivamos la carga automática de paquetes al inicio ya que el gestor de paquetes se configura en init.
 
-#+begin_src emacs-lisp :tangle early-init.el :comments no
+#+begin_src elisp
   (setq package-enable-at-startup nil)
 #+end_src
 *** UTF-8 como codificación de texto por defecto
 
-#+begin_src emacs-lisp :tangle early-init.el :comments no
+#+begin_src elisp
   (set-language-environment 'utf-8)
   (set-default-coding-systems 'utf-8)
   (set-keyboard-coding-system 'utf-8-unix)
@@ -29,14 +36,22 @@ Desactivamos la carga automática de paquetes al inicio ya que el gestor de paqu
 
 *** Declutter de la interfaz
 
-Desactivamos los elementos de la interfaz aquí para que no se lleguen a cargar.
+Si se desactivan aquí los elementos de la interfaz que no se vayan a usar, no se cargan en ningún momento.
 
-#+begin_src emacs-lisp :tangle early-init.el :comments no
+#+begin_src elisp
   (menu-bar-mode -1)                     ; Barra del menú
   (tool-bar-mode -1)                     ; Barra de herramientas
   (scroll-bar-mode -1)                   ; Scrollbar
   (tooltip-mode -1)                      ; Tooltips
 #+end_src
+
+*** Tamaño del frame inicial
+
+#+begin_src elisp
+  (add-to-list 'default-frame-alist '(fullscreen . maximized))
+  (add-to-list 'default-frame-alist '(undecorated . t))
+#+end_src
+
 
 ** GESTIÓN DE PAQUETES
 
@@ -49,7 +64,7 @@ En mi caso el repositorio es MELPA. Existe la opción de usar package.el y bajar
 
 Tras inicializarlo le indicamos también que solo intente refrescar la lista de paquetes disponibles cuando no haya una lista de paquetes ya guardada.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (require 'package)
   (setq package-archives'(("melpa" . "https://melpa.org/packages/")))
   (package-initialize)
@@ -70,7 +85,7 @@ El paquete =use-package= nos proporciona una macro =(use-package paquete [macro 
   - =:config= ejecuta código después de cargar el paquete.
   - =:after= asegura que el paquete se carga tras haber terminado la carga de los otros paquetes aquí especificados.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (unless (package-installed-p 'use-package)
     (package-install 'use-package))
   (require 'use-package)
@@ -83,7 +98,7 @@ El paquete =use-package= nos proporciona una macro =(use-package paquete [macro 
 
 *** EVIL: Vim motions en Emacs
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (use-package evil
     :init
 
@@ -120,7 +135,7 @@ El paquete =use-package= nos proporciona una macro =(use-package paquete [macro 
 **** Ocultar ficheros no interesantes
 Oculta ficheros denominados como "no interesantes": auto-saves, backups, y otros ficheros.
 
-#+BEGIN_SRC emacs-lisp :tangle init.el :comments no
+#+BEGIN_SRC elisp
   (add-hook 'dired-mode-hook
 	    (lambda ()
 	      (dired-omit-mode)))
@@ -130,7 +145,7 @@ Oculta ficheros denominados como "no interesantes": auto-saves, backups, y otros
 *** Historiales
 **** Historial de ficheros recientes
 
-#+BEGIN_SRC emacs-lisp :tangle init.el :comments no
+#+BEGIN_SRC elisp
   (recentf-mode 1)
 #+END_SRC
 
@@ -141,7 +156,7 @@ A la hora de ejecutar un comando con =M-x= o ejecutar código con =M-;= podemos 
 - =history-length=: Para cada minibuffer se guardan los 10 ultimos valores usados.
   - El default para history-length es 100, pero tiene fama de ralentizar el sistema.
 
-#+BEGIN_SRC emacs-lisp :tangle init.el :comments no
+#+BEGIN_SRC elisp
   (setq history-length 10)
   (savehist-mode 1)
 #+END_SRC
@@ -149,9 +164,9 @@ A la hora de ejecutar un comando con =M-x= o ejecutar código con =M-;= podemos 
 
 *** Buffers
 **** Config general de buffers
-***** Actualizar buffers abiertos se detectan cambios
+***** Actualizar buffers abiertos si se detectan cambios
 Aplica a todos los buffers de modos que no representen directamente ficheros (Ejemplo: Dired)
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (setq global-auto-revert-non-file-buffers t)
 #+end_src
 
@@ -160,12 +175,13 @@ Aplica a todos los buffers de modos que no representen directamente ficheros (Ej
 Si un fichero abierto en un buffer cambia en disco, dicho buffer se actualiza para reflejar ese cambio.
 Eso sí, si hay cambios sin guardar, pregunta antes si se quiere o no actualizar el buffer.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (global-auto-revert-mode 1)
 #+end_src
+
 ***** Recordar ultima posición del cursor al abrir un fichero
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (save-place-mode 1)
 #+end_src
 
@@ -174,18 +190,18 @@ Eso sí, si hay cambios sin guardar, pregunta antes si se quiere o no actualizar
 
 **** Confirmar siempre con y o n, nunca con yes ni con no
   
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (fset 'yes-or-no-p 'y-or-n-p)
 #+end_src
 
 **** No usar dialogs externos para ningún prompt
 Todos los prompts de input se llevarán por Emacs.
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (setq use-dialog-box nil)
 #+end_src
 
 **** El propio Emacs gestiona las requests de contraseña
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (setq epg-pinentry-mode 'loopback)
 #+end_src
 
@@ -199,7 +215,7 @@ Este motor de autocompletado ofrece una interfaz sencilla de autocompletado usan
 
 Ivy por sí solo nos ofrece un sistema de filtrado flexible basado en regex y que soporta varios tipos de búsqueda (fuzzy matching, substring, prefix matching...). Pero además se integra con Counsel y Swiper para ofrecer una experiencia moderadamente intuitiva y fluida.
 
-#+BEGIN_SRC emacs-lisp :tangle init.el :comments no
+#+BEGIN_SRC elisp
   (use-package ivy
     :config (ivy-mode))
 #+END_SRC
@@ -211,7 +227,7 @@ Counsel mejora varias de los comandos de Emacs integrando Ivy en la interfaz que
 
 - Counsel viene incluido con Ivy.
 
-#+BEGIN_SRC emacs-lisp :tangle init.el :comments no
+#+BEGIN_SRC elisp
   (use-package counsel
     :config (counsel-mode))
 #+END_SRC
@@ -221,7 +237,7 @@ Counsel mejora varias de los comandos de Emacs integrando Ivy en la interfaz que
 
 Mejora de interfaz de Ivy, más informativa y configurable.
 
-#+BEGIN_SRC emacs-lisp :tangle init.el :comments no
+#+BEGIN_SRC elisp
   (use-package ivy-rich
     :after (ivy counsel)
     :init (ivy-rich-mode 1))
@@ -236,7 +252,7 @@ Mejora de interfaz de Ivy, más informativa y configurable.
 
 Sustituye varios de los comandos de ayuda de Emacs (y Counsel!) por otros que ofrecen información más contextual.
 
-#+BEGIN_SRC emacs-lisp :tangle init.el :comments no
+#+BEGIN_SRC elisp
   (use-package helpful
      :after counsel
      :custom
@@ -257,7 +273,7 @@ Sustituye varios de los comandos de ayuda de Emacs (y Counsel!) por otros que of
 Con which-key, se muestra ayuda en un minibuffer si empezamos a introducir una combinación de teclas y paramos cierto tiempo.
 - =which-key-idle-delay= indica los segundos que tarda en aparecer la ayuda de which-key.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (use-package which-key
   :init (which-key-mode)
   :diminish which-key-mode
@@ -272,7 +288,7 @@ Con which-key, se muestra ayuda en un minibuffer si empezamos a introducir una c
 
 *** PDF-TOOLS: Lector de ficheros PDF
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (use-package pdf-tools)
 #+end_src
 
@@ -286,7 +302,7 @@ Con which-key, se muestra ayuda en un minibuffer si empezamos a introducir una c
 El paquete Magit es un wrapper de Git para Emacs.
 - Cambiando la función de display de Magit a =magit-display-buffer-same-window-except-diff-v1=, el buffer de Magit ocupa todo el marco.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (use-package magit
     :commands (magit-status magit-get-current-branch)
     :custom
@@ -299,25 +315,27 @@ El paquete Magit es un wrapper de Git para Emacs.
 
 **** LENGUAJES DE PROGRAMACIÓN
 
-Carga =ELisp= y =Python=.
+Carga =Elisp=, =Java=, =Python= y =SQL=.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (org-babel-do-load-languages
    'org-babel-load-languages
    '((emacs-lisp . t)
-     (python . t)))
+     (java . t)
+     (python . t)
+     (sql . t)))
 #+end_src
 
 **** SALTAR CONFIRMACIÓN PREVIA A EJECUTAR BLOQUES DE CÓDIGO
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (setq org-confirm-babel-evaluate nil)
 #+end_src
 
 
 *** PROJECTILE: GESTIÓN DE PROYECTOS
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (use-package projectile
   :diminish projectile-mode
   :config (projectile-mode)
@@ -337,7 +355,7 @@ Carga =ELisp= y =Python=.
 
 **** [[https://github.com/ericdanan/counsel-projectile][COUNSEL-PROJECTILE]]: Integración de Ivy en los buffers de Projectile
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (use-package counsel-projectile                                  
     :init (counsel-projectile-mode))
 #+end_src
@@ -345,20 +363,21 @@ Carga =ELisp= y =Python=.
 
 *** MEJORAS VISUALES PARA LA PROGRAMACIÓN
 
-#+begin_src emacs-lisp :tangle init.el :comments no
-  ;; Muestra números de línea. Con excepciones
-  (global-display-line-numbers-mode t)
-  (dolist (mode '(org-mode-hook
-		  org-agenda-mode-hook
-		  term-mode-hook
-		  shell-mode-hook
-		  eshell-mode-hook
-		  pdf-view-mode-hook))
-    (add-hook mode (lambda() (display-line-numbers-mode 0))))
+#+begin_src elisp
+    ;; Muestra números de línea. Con excepciones
+    (global-display-line-numbers-mode t)
+    (dolist (mode '(org-mode-hook
+		    org-agenda-mode-hook
+		    term-mode-hook
+		    shell-mode-hook
+		    eshell-mode-hook
+		    pdf-view-mode-hook
+		    Info-mode-hook))
+      (add-hook mode (lambda() (display-line-numbers-mode 0))))
 
-  ;; Paréntesis cambian de color para mayor legibilidad
-  (use-package rainbow-delimiters
-    :hook (prog-mode . rainbow-delimiters-mode))
+    ;; Paréntesis cambian de color para mayor legibilidad
+    (use-package rainbow-delimiters
+      :hook (prog-mode . rainbow-delimiters-mode))
 #+end_src
 
 ** INTERFAZ
@@ -368,7 +387,7 @@ La mode line, o línea de modos, es la línea horizontal que está en la 2ª pos
 Esta línea muestra información como el modo de Emacs en el que estamos ahora mismo.
 DOOM-ModeLine mejora visualmente la modeline y le añade información extra de utilidad.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (use-package doom-modeline
     :init (doom-modeline-mode 1)
     :custom ((doom-modeline-height 20)))
@@ -382,18 +401,11 @@ DOOM-ModeLine mejora visualmente la modeline y le añade información extra de u
 #+end_src
 
 
-*** FUENTES
-Para añadir fuentes nuevas bajo Emacs en WSL2, se ha de pegar las fuentes en =~/.fonts/= y actualizar la caché de fuentes con =$fc -cache -f=.
-
-#+begin_src emacs-lisp :tangle init.el :comments no
-  (set-face-attribute 'default nil :family "CaskaydiaMono Nerd Font Propo" :height 150)
-#+end_src
-
 
 *** TEMAS
 Uso el tema =modus-vivendi=.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (use-package autothemer
     :config
     ;; Tema alto personalizable
@@ -406,11 +418,10 @@ Uso el tema =modus-vivendi=.
 *** CENTRADO DE TEXTO
 Se centra el texto para los buffers de Org y org-agenda.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (use-package olivetti
     :config
     (setq-default olivetti-body-width 0.8)
-    (add-hook 'org-agenda-mode-hook 'olivetti-mode)
     (add-hook 'org-mode-hook 'olivetti-mode))
 #+end_src
 
@@ -419,15 +430,29 @@ Se centra el texto para los buffers de Org y org-agenda.
 
 La ventana que se está editando se vuelve más grande que el resto automáticamente. Además, la división de ventanas tiene una proporción un poquito más normal.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (use-package golden-ratio
     :config
     (golden-ratio-mode 1))
 #+end_src
 
+
+*** MEJORAS DEL RATÓN
+
+Sigue siendo una herramienta útil por mucho que quiera evitarlo.
+- =iscroll= es un paquete que permite scroll smooth en documentos con imágenes.
+
+#+begin_src elisp
+  (setq auto-window-vscroll nil)
+  (use-package iscroll
+    :config
+    (iscroll-mode))
+#+end_src
+
+
 *** OTRAS CONFIGS DE INTERFAZ
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   ;; Error de límite se comunica visualmente en lugar de con un sonido
   (setq visible-bell t)
   (set-fringe-mode 0)                    ; Activa los márgenes pero los esconde
@@ -437,17 +462,10 @@ La ventana que se está editando se vuelve más grande que el resto automáticam
 
 ** INICIO
 
-*** Inicio de ventana de Emacs maximizada y sin barra de título
-#+begin_src emacs-lisp :tangle init.el :comments no
-  (add-to-list 'default-frame-alist '(fullscreen . maximized))
-  (add-to-list 'default-frame-alist '(undecorated . t))
-#+end_src
-
-
 *** ¿Qué buffer abrir al inicio?
 Si se abre en modo server, se abre org-agenda. Si se abre en modo cliente, abrir este fichero.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (add-hook 'server-after-make-frame-hook (lambda() (org-agenda nil "a")))
   (add-hook 'emacs-startup-hook (lambda ()
 				  (unless (server-running-p)
@@ -458,7 +476,7 @@ Si se abre en modo server, se abre org-agenda. Si se abre en modo cliente, abrir
 
 ** ORG: He aquí. He aquí la chicha.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
     (use-package org
       :config
       (setq org-directory "~/org")
@@ -470,7 +488,7 @@ Si se abre en modo server, se abre org-agenda. Si se abre en modo cliente, abrir
 
 **** FICHEROS DE ORG-AGENDA
 Ficheros que se tendrán en cuenta a la hora de montar la agenda. De momento los ficheros de =~/org/gtd=.
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (setq org-agenda-files (list "~/org/gtd/inbox.org"           
 			       "~/org/gtd/gtd.org"
 			       "~/org/gtd/tickler.org"))
@@ -481,7 +499,7 @@ Ficheros que se tendrán en cuenta a la hora de montar la agenda. De momento los
 ***** Agenda diaria
 La agenda por defecto muestra las entradas para un solo día en lugar de la agenda semanal por defecto.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (setq org-agenda-span 1
 	org-agenda-start-day "+0d")
 #+end_src
@@ -489,7 +507,7 @@ La agenda por defecto muestra las entradas para un solo día en lugar de la agen
 ***** Declutter visual
 Configuración de los elementos de la agenda que se muestran o dejan de mostrar. Además quita las lineas que muestra org-agenda por defecto para montar un horario.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   ;; Abre org-agenda sin dividir la ventana
   (setq org-agenda-window-setup 'only-window)
 
@@ -511,38 +529,49 @@ Configuración de los elementos de la agenda que se muestran o dejan de mostrar.
 - =org-use-fast-todo-selection= determina cuándo mostrar el menú de selección para org-todo. =auto= se salta este menu cuando se invoca a org-todo con argumentos de estado.
 - =org-todo-keywords= determina los posibles estados de los TODOs.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (setq
    org-use-fast-todo-selection 'prefix
    org-todo-keywords
-   '((sequence "TODO(t)" "|" "DONE(d)")
-     (sequence "|" "CANCELED(c)")))
+   '((sequence ; FLOW PRINCIPAL DE TAREAS
+      "TODO(t)" ; Hacer luego
+      "NEXT(n)" ; En proceso/siguiente
+      "|"
+      "DONE(d)" ; Hecho
+      )
+     (sequence ; FLOW BACKLOG
+      "WAIT(w)" ; A la espera de algo externo
+      "HOLD(h)" ; A la espera por motu propio
+      "IDEA(i)" ; Para atajar algún día
+      "|"
+      "NOTE(o@/!)" ; No es TODO; solo para trackear
+      "STOP(s@/!)" ; Estado final para cancelar
+      )))
 #+end_src
-
 
 *** ORG-CAPTURE
 
 - =org-default-notes-file=: Fichero destinatario de las nuevas capturas por defecto.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (setq org-default-notes-file (concat org-directory "/gtd/inbox.org"))
 #+end_src
 
 **** PLANTILLAS DE ORG-CAPTURE
 Algunas por aquí, otras por fichero externo.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (setq org-capture-templates
-	'(("t" "New TODO" entry (file+headline "~/org/gtd/inbox.org" "Sort me!")
-	   "**  TODO %?"
+	'(("t" "TODO" entry (file+headline "~/org/gtd/gtd.org" "INBOX")
+	   "** TODO %?"
 	   :empty-lines-after 1)
 
-	  ("s" "New Scheduled item" entry (file+headline "~/org/gtd/inbox.org" "Sort me!")
-	   "**  %?\n SCHEDULED: %^T"
+	  ("c" "Cita" entry (file+headline "~/org/gtd/gtd.org" "INBOX")
+	   "** %?\n SCHEDULED: %^T"
 	   :empty-lines-after 1)
 
-	  ("d" "New Deadline item" entry (file+headline "~/org/gtd/inbox.org" "Sort me!")
-	   "**  %?\n DEADLINE: %^T"
+	  ("d" "TODO con deadline" entr (file+headline "~/org/gtd/gtd.org" "INBOX")
+	   "** TODO %?\n DEADLINE: %^T"
 	   :empty-lines-after 1)))
 #+end_src
 
@@ -553,7 +582,7 @@ Gestor de información con backlincks basado en Emacs Lisp y sostenido por SQLit
 - =org-roam-directory= para indicar la carpeta donde se guardan las notas de Roam.
 - =org-roam-completion-everywhere= a =t= activa el autocompletado de Roam para links que no son de Org. 
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (use-package org-roam
     :custom
     (org-roam-directory "~/org/roam")
@@ -567,7 +596,7 @@ Gestor de información con backlincks basado en Emacs Lisp y sostenido por SQLit
 *** ORG-MODERN
 Mejora visual de los elementos de Org-Mode
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (use-package org-modern
     :after org
     :config
@@ -583,12 +612,18 @@ Mejora visual de los elementos de Org-Mode
   Perfecto para quedarme hasta las tantas y seguir guardando sobre el día anterior.
 - =org-hide-emphasis-markers=: Elimina *caracteres* _de_ =énfasis=.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (setq org-extend-today-until 6
 	org-hide-emphasis-markers t)
 #+end_src
 
+**** Escalado automático de imágenes
 
+- =org-image-actual-width=: Determina el ancho de las imágenes en la pantalla.
+
+#+begin_src elisp
+  (setq org-image-actual-width nil)
+#+end_src
 
 ** ATAJOS DE TECLADO: [[https://github.com/noctuid/general.el][GENERAL.EL]] y [[https://github.com/abo-abo/hydra][HYDRA]]
 
@@ -597,7 +632,7 @@ Mejora visual de los elementos de Org-Mode
 
 - [[https://github.com/abo-abo/hydra][Hydra]] brinda atajos stackeables: Activar una hidra permite establecer "mini-modos" con los que ejecutar otros comandos en rápida sucesión.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (use-package general)
   (use-package hydra)
 #+end_src
@@ -609,7 +644,7 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
 - *CANCELAR*: =Esc=
   Por defecto, el keybind para la función general de cancelar (=keyboard-escape-quit=), está asociada a =C-g=.
 
-  #+begin_src emacs-lisp :tangle init.el :comments no
+  #+begin_src elisp
   (general-def
     "<escape>" 'keyboard-escape-quit)
   #+end_src
@@ -617,7 +652,7 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
 
 *** ATAJOS DE IVY
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (general-def
     ;; Control-F a lo bestia
     "C-s"      'swiper
@@ -652,7 +687,7 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
 - =org-babel-execute-subtree= (=C-c b e s=): Ejecuta todos los bloques de código bajo un encabezado de Org.
 - =org-babel-execute-buffer= (=C-c b e b=): Ejecuta todos los bloques de código del buffer.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (general-def
     :prefix "C-c b"
     ""  '(:ignore t :which-key "org-babel")
@@ -670,7 +705,7 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
   - Dentro de la agenda, =C-c C-x C-t= marca una tarea como completa.
 - =org-capture= (=C-c c=): Inicia org-capture para la captura de información.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (general-def
     "C-c l" 'org-store-link
     "C-c a" 'org-agenda
@@ -681,8 +716,14 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
       "" '(:ignore t :which-key "org-roam")
       "l" 'org-roam-buffer-toggle
       "f" 'org-roam-node-find
-      "i" 'org-roam-node-insert)
+      "i" 'org-roam-node-insert
+      "d" 'org-roam-dailies-map)
 
+  (general-def
+      :keymaps '(org-roam-dailies-map)
+      "Y" 'org-roam-dailies-capture-yesterday
+      "T" 'org-roam-dailies-capture-tomorrow)
+  
   (general-def
     :keymaps '(org-agenda-mode-map)
     "C-c C-x C-t" 'org-agenda-toggle-completed)
@@ -697,7 +738,7 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
 
 **** ZOOM IN/OUT: C-M-z
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (defhydra hydra-zoom (:timeout 4)
     "scale text"
     ("j" text-scale-increase "in")
@@ -718,7 +759,8 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
 - =org-timestamp-weekdayp= acepta una fecha y devuelve T si el día de la semana especificado es laborable.
   Útil para definir timestamps que solo apliquen bien L-V o fines de semana.
   - Para usarlo: =SCHEDULED: <%%(org-timestamp-weekdayp date)>=
-#+begin_src emacs-lisp :tangle init.el :comments no
+
+#+begin_src elisp
   (defun org-timestamp-weekdayp (date)
     "Return `t` if DATE is a workday (Monday to Friday)."
     (let ((day-of-week (calendar-day-of-week date)))
@@ -727,7 +769,7 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
 
 - =org-agenda-toggle-completed= muestra u oculta los items ya completados en la agenda.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (defun org-agenda-toggle-completed ()
     "Toggles visibility for done TODO items."
     (interactive)
@@ -743,7 +785,7 @@ Definición de enlaces con acciones personalizadas.
 
 **** exec-block: EJECUTAR BLOQUES CODIGO
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (org-link-set-parameters
    "exec-block"
    :follow #'org-babel-ref-resolve)
@@ -753,25 +795,97 @@ Definición de enlaces con acciones personalizadas.
 ** CUSTOMIZACIÓN
 Las variables customizadas se guardan en fichero aparte que se carga en inicialización.
 
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (setq custom-file (locate-user-emacs-file "custom-vars.el"))
   (load custom-file 'noerror 'nomessage)
 #+end_src
 
-** CONFIGS. ESPECÍFICAS DE EQUIPO
+** CONFIGS ESPECIFICAS: SEPARANDO CURRO DE CASA
+
+#+begin_src elisp
+  (if (eq (getenv "WORK-EMACS") "Y")
+      (load-file "~/.config/emacs/work-init.el")
+    (load-file "~/.config/emacs/personal-init.el"))
+  #+end_src
+
+** CONFIGS. POR SISTEMA
 
 Al finalizar la ejecución del fichero init.el principal, pasamos a cargar configuraciones específicas de dispositivo.
 
-Se tienen ahora mismo 2 ficheros de config:
-- PC personal
-- PC curro
-
-#+begin_src emacs-lisp :tangle init.el :comments no
+#+begin_src elisp
   (cond
-   ((eq system-type 'gnu/linux)
-    (load-file "~/.emacs.d/wsl-init.el"))
+   ((and (eq system-type 'gnu/linux) (file-exists-p "/etc/wsl.conf"))
+    (load-file "~/.config/emacs/wsl-init.el"))
    ((eq system-type 'windows-nt)
     (load-file "~/.emacs.d/win-init.el")))
+#+end_src
+
+Existen ahora mismo 2 ficheros de config especificos por equipo:
+
+*** CONFIG. WSL2
+:PROPERTIES:
+:header-args: elisp :tangle wsl-init.el :comments no
+:END:
+
+Configuraciones útiles, cuando no esenciales, a la hora de ejecutar Emacs dentro de WSL2 en Windows.
+
+#+begin_src elisp
+  ;; Permite hacer copy/paste entre Windows e Emacs: https://www.lukas-barth.net/blog/emacs-wsl-copy-clipboard/
+  (setq select-active-regions nil)
+
+  ;; Abre las URLs con Firefox: https://hkvim.com/post/windows-setup/
+  (defun wsl-browse-url-xdg-open (url &optional ignored)
+    (interactive (browse-url-interactive-arg "URL: "))
+    (shell-command-to-string (concat "wslview " url)))
+
+  (advice-add #'browse-url-xdg-open :override #'wsl-browse-url-xdg-open)
+
+  ;; Windows host copy
+  (defun wsl-copy (start end)
+    (interactive "r")
+    (shell-command-on-region start end "clip.exe")
+    (deactivate-mark))
+
+  ;; Windows host paste
+  (defun wsl-paste ()
+    (interactive)
+    (let ((clipboard
+	   (shell-command-to-string "powershell.exe -command 'Get-Clipboard' 2> /dev/null")))
+      (setq clipboard (replace-regexp-in-string "\r" "" clipboard)) ; Remove Windows ^M characters
+      (setq clipboard (substring clipboard 0 -1)) ; Remove newline added by Powershell
+      (insert clipboard)))
+
+  ;; Atajos copy-paste de Windows
+  (general-def
+    :prefix "C-c w"
+    "c" 'wsl-copy
+    "v" 'wsl-paste)
+#+end_src
+
+**** FUENTES (Linux)
+Para añadir fuentes nuevas bajo Emacs en WSL2, se ha de pegar las fuentes en =~/.fonts/= y actualizar la caché de fuentes con =$fc -cache -f=.
+
+#+begin_src elisp
+  (set-face-attribute 'default nil :family "CaskaydiaMono Nerd Font Propo" :height 150)
+#+end_src
+
+**** TRANSPARENCIA
+Funciona solo en emacs-gtk.
+
+#+begin_src elisp
+  (set-frame-parameter nil 'alpha-background 80)
+  (add-to-list 'default-frame-alist '(alpha-background . 80))
+#+end_src
+
+*** CONFIG. WINDOWS
+:PROPERTIES:
+:header-args: elisp :tangle win-init.el :comments no
+:END:
+
+**** FUENTES (Windows)
+
+#+begin_src elisp
+  (set-face-attribute 'default nil :family "CaskaydiaMono NFP" :height 120)
 #+end_src
 
 ** VARIABLES LOCALES
