@@ -45,12 +45,6 @@ Si se desactivan aquí los elementos de la interfaz que no se vayan a usar, no s
   (tooltip-mode -1)                      ; Tooltips
 #+end_src
 
-*** Tamaño del frame inicial
-
-#+begin_src elisp
-  (add-to-list 'default-frame-alist '(fullscreen . maximized))
-  (add-to-list 'default-frame-alist '(undecorated . t))
-#+end_src
 
 
 ** GESTIÓN DE PAQUETES
@@ -880,6 +874,16 @@ Funciona solo en emacs-gtk.
   (set-frame-parameter nil 'alpha-background 80)
   (add-to-list 'default-frame-alist '(alpha-background . 80))
 #+end_src
+
+**** TAMAÑO FRAME INICIAL Y NUEVOS FRAMES
+
+#+begin_src elisp
+  (add-to-list 'default-frame-alist '(fullscreen . maximized))
+  (add-to-list 'default-frame-alist '(undecorated . t))
+  (add-to-list 'initial-frame-alist '(fullscreen . maximized))
+  (add-to-list 'initial-frame-alist '(undecorated . t))
+#+end_src
+
 
 *** CONFIG. WINDOWS
 :PROPERTIES:
