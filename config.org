@@ -580,7 +580,8 @@ Algunas por aquí, otras por fichero externo.
 Gestor de información con backlincks basado en Emacs Lisp y sostenido por SQLite.
 
 - =org-roam-directory= para indicar la carpeta donde se guardan las notas de Roam.
-- =org-roam-completion-everywhere= a =t= activa el autocompletado de Roam para links que no son de Org. 
+- =org-roam-completion-everywhere= a =t= activa el autocompletado de Roam para links que no son de Org.
+- =org-roam-dailies= nos ofrece funcionalidad para tener notas diarias en org-roam. 
 
 #+begin_src elisp
   (use-package org-roam
@@ -588,7 +589,9 @@ Gestor de información con backlincks basado en Emacs Lisp y sostenido por SQLit
     (org-roam-directory "~/org/roam")
     (org-roam-completion-everywhere t)
     :config
-    (org-roam-setup))
+    (require 'org-roam-dailies)
+    (org-roam-setup)
+    (org-roam-db-autosync-mode))
 #+end_src
 
 
@@ -712,24 +715,25 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
     "C-c c" 'org-capture)
 
   (general-def
-      :prefix "C-c n"
-      "" '(:ignore t :which-key "org-roam")
-      "l" 'org-roam-buffer-toggle
-      "f" 'org-roam-node-find
-      "i" 'org-roam-node-insert
-      "d" 'org-roam-dailies-map)
+    :keymaps 'org-roam-dailies-map
+    "Y" 'org-roam-dailies-capture-yesterday
+    "T" 'org-roam-dailies-capture-tomorrow)
 
   (general-def
-      :keymaps '(org-roam-dailies-map)
-      "Y" 'org-roam-dailies-capture-yesterday
-      "T" 'org-roam-dailies-capture-tomorrow)
-  
+    :prefix "C-c n"
+    "" '(:ignore t :which-key "org-roam")
+    "l" 'org-roam-buffer-toggle
+    "f" 'org-roam-node-find
+    "i" 'org-roam-node-insert
+    "d" '(:keymap org-roam-dailies-map :which-key "Daily notes" :package org-roam))
+
+
   (general-def
-    :keymaps '(org-agenda-mode-map)
+    :keymaps 'org-agenda-mode-map
     "C-c C-x C-t" 'org-agenda-toggle-completed)
 
   (general-def
-      :keymaps '(org-mode-map)
+      :keymaps 'org-mode-map
       "C-M-i"  'completion-at-point)
 #+end_src
 
