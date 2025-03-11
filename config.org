@@ -2,7 +2,7 @@
 
 * EMACS CONFIG
 :PROPERTIES:
-:header-args: elisp :tangle init.el :comments no
+:header-args: elisp :tangle ~/.emacs.d/init.el :comments no
 :END:
 
 Los bloques de código de dentro de este fichero están configurados para que, al guardarse este fichero, se construya una serie de archivos a partir de ellos que serán los *ficheros de configuración de Emacs*. Estos ficheros se ejecutan al iniciarse Emacs realizando toda la configuración.
@@ -12,7 +12,7 @@ Salvo que se especifique con una propiedad de tipo =header-args= los bloques de 
 
 ** CONFIGURACIÓN PRE-CARGA
 :PROPERTIES:
-:header-args: elisp :tangle early-init.el :comments no
+:header-args: elisp :tangle ~/.emacs.d/early-init.el :comments no
 :END:
 
 El fichero =early-init.el= nos permite cargar configuraciones incluso antes de que se inicialicen ciertos aspectos fundamentales de Emacs, como los paquetes y el sistema gráfico.
@@ -808,8 +808,8 @@ Las variables customizadas se guardan en fichero aparte que se carga en iniciali
 
 #+begin_src elisp
   (if (eq (getenv "WORK-EMACS") "Y")
-      (load-file "~/.config/emacs/work-init.el")
-    (load-file "~/.config/emacs/personal-init.el"))
+      (load (locate-user-emacs-file "work-init.el"))
+    (load (locate-user-emacs-file "personal-init.el")))
   #+end_src
 
 ** CONFIGS. POR SISTEMA
@@ -819,16 +819,16 @@ Al finalizar la ejecución del fichero init.el principal, pasamos a cargar confi
 #+begin_src elisp
   (cond
    ((and (eq system-type 'gnu/linux) (file-exists-p "/etc/wsl.conf"))
-    (load-file "~/.config/emacs/wsl-init.el"))
+    (load (locate-user-emacs-file "wsl-init.el")))
    ((eq system-type 'windows-nt)
-    (load-file "~/.emacs.d/win-init.el")))
+    (load (locate-user-emacs-file "win-init.el"))))
 #+end_src
 
 Existen ahora mismo 2 ficheros de config especificos por equipo:
 
 *** CONFIG. WSL2
 :PROPERTIES:
-:header-args: elisp :tangle wsl-init.el :comments no
+:header-args: elisp :tangle ~/.emacs.d/wsl-init.el :comments no
 :END:
 
 Configuraciones útiles, cuando no esenciales, a la hora de ejecutar Emacs dentro de WSL2 en Windows.
@@ -883,7 +883,7 @@ Funciona solo en emacs-gtk.
 
 *** CONFIG. WINDOWS
 :PROPERTIES:
-:header-args: elisp :tangle win-init.el :comments no
+:header-args: elisp :tangle ~/.emacs.d/win-init.el :comments no
 :END:
 
 **** FUENTES (Windows)
