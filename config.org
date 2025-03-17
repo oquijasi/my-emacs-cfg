@@ -453,21 +453,6 @@ Sigue siendo una herramienta útil por mucho que quiera evitarlo.
 #+end_src
 
 
-
-** INICIO
-
-*** ¿Qué buffer abrir al inicio?
-Si se abre en modo server, se abre org-agenda. Si se abre en modo cliente, abrir este fichero.
-
-#+begin_src elisp
-  (add-hook 'server-after-make-frame-hook (lambda() (org-agenda nil "a")))
-  (add-hook 'emacs-startup-hook (lambda ()
-				  (unless (server-running-p)
-				    (find-file "~/.config/emacs/config.org"))))
-#+end_src
-
-
-
 ** ORG: He aquí. He aquí la chicha.
 
 #+begin_src elisp
