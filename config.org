@@ -607,6 +607,16 @@ Mejora visual de los elementos de Org-Mode
   (setq org-image-actual-width nil)
 #+end_src
 
+
+** YASNIPPET: Plantillas para todo
+
+#+begin_src elisp
+  (use-package yasnippet
+    :config
+    (setq yas-snippet-dirs '("~/.emacs.d/snippets"))
+    (yas-global-mode 1))
+#+end_src
+
 ** ATAJOS DE TECLADO: [[https://github.com/noctuid/general.el][GENERAL.EL]] y [[https://github.com/abo-abo/hydra][HYDRA]]
 
 - [[https://github.com/noctuid/general.el][General.el]] ofrece una forma sencilla de establecer keybinds a traves de todo Emacs.
