@@ -796,7 +796,7 @@ Las variables customizadas se guardan en fichero aparte que se carga en iniciali
 ** CONFIGS ESPECIFICAS: SEPARANDO CURRO DE CASA
 
 #+begin_src elisp
-  (if (eq (getenv "WORK-EMACS") "Y")
+  (if (string= (getenv "WORK-EMACS") "Y")
       (load (locate-user-emacs-file "work-init.el"))
     (load (locate-user-emacs-file "personal-init.el")))
   #+end_src
