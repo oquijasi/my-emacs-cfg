@@ -893,7 +893,7 @@ Funciona solo en emacs-gtk.
 **** FUENTES (Windows)
 
 #+begin_src elisp
-  (set-face-attribute 'default nil :family "CaskaydiaMono NFP" :height 120)
+  (set-face-attribute 'default nil :family "CaskaydiaMono NFP" :height 150)
 #+end_src
 
 ** VARIABLES LOCALES
