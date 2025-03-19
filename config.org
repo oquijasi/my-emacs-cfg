@@ -66,7 +66,29 @@ Tras inicializarlo le indicamos también que solo intente refrescar la lista de 
     (package-refresh-contents))
 #+end_src
 
+*** STRAIGHT.EL
 
+#+begin_src elisp
+  (defvar bootstrap-version)
+  (let ((bootstrap-file
+	 (expand-file-name
+	  "straight/repos/straight.el/bootstrap.el"
+	  (or (bound-and-true-p straight-base-dir)
+	      user-emacs-directory)))
+	(bootstrap-version 7))
+    (unless (file-exists-p bootstrap-file)
+      (with-current-buffer
+	  (url-retrieve-synchronously
+	   "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
+	   'silent 'inhibit-cookies)
+	(goto-char (point-max))
+	(eval-print-last-sexp)))
+    (load bootstrap-file nil 'nomessage))
+#+end_src
+
+#+begin_src elisp 
+  (straight-use-package 'org)
+#+end_src
 *** [[https://github.com/jwiegley/use-package][USE-PACKAGE]]
 
 El paquete =use-package= nos proporciona una macro =(use-package paquete [macro codigo])= que nos permite configurar nuestros paquetes de Emacs de una forma eficiente y ordenada a partir de este punto en la configuración.
@@ -80,10 +102,8 @@ El paquete =use-package= nos proporciona una macro =(use-package paquete [macro 
   - =:after= asegura que el paquete se carga tras haber terminado la carga de los otros paquetes aquí especificados.
 
 #+begin_src elisp
-  (unless (package-installed-p 'use-package)
-    (package-install 'use-package))
-  (require 'use-package)
-  (setq use-package-always-ensure t)
+  (straight-use-package 'use-package)
+  (setq straight-use-package-by-default t)
 #+end_src
 
 
