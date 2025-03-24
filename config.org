@@ -378,20 +378,21 @@ Carga =Elisp=, =Java=, =Python= y =SQL=.
 *** MEJORAS VISUALES PARA LA PROGRAMACIÓN
 
 #+begin_src elisp
-    ;; Muestra números de línea. Con excepciones
-    (global-display-line-numbers-mode t)
-    (dolist (mode '(org-mode-hook
-		    org-agenda-mode-hook
-		    term-mode-hook
-		    shell-mode-hook
-		    eshell-mode-hook
-		    pdf-view-mode-hook
-		    Info-mode-hook))
-      (add-hook mode (lambda() (display-line-numbers-mode 0))))
+  ;; Muestra números de línea. Con excepciones
+ 
+  (global-display-line-numbers-mode t)
+  (dolist (mode '(org-mode-hook
+  		    org-agenda-mode-hook
+  		    term-mode-hook
+  		    shell-mode-hook
+  		    eshell-mode-hook
+  		    pdf-view-mode-hook
+  		    Info-mode-hook))
+    (add-hook mode (lambda() (display-line-numbers-mode 0))))
 
-    ;; Paréntesis cambian de color para mayor legibilidad
-    (use-package rainbow-delimiters
-      :hook (prog-mode . rainbow-delimiters-mode))
+  ;; Paréntesis cambian de color para mayor legibilidad
+  (use-package rainbow-delimiters
+    :hook (prog-mode . rainbow-delimiters-mode))
 #+end_src
 
 ** INTERFAZ
@@ -512,14 +513,20 @@ Configuración de los elementos de la agenda que se muestran o dejan de mostrar.
 
   ;; Declutter, quita items ya hechos o duplicados
   (setq org-agenda-skip-timestamp-if-done t
-	org-agenda-skip-deadline-if-done t
-	org-agenda-skip-scheduled-if-done t
-	org-agenda-skip-scheduled-if-deadline-is-shown t
-	org-agenda-skip-timestamp-if-deadline-is-shown t)
+  	org-agenda-skip-deadline-if-done t
+  	org-agenda-skip-scheduled-if-done t
+  	org-agenda-skip-scheduled-if-deadline-is-shown t
+  	org-agenda-skip-timestamp-if-deadline-is-shown t)
 
   ;; Quita grid de horario de la vista de agenda
   (setq org-agenda-current-time-string ""
-	org-agenda-time-grid '((daily) () "" ""))
+  	org-agenda-time-grid '((daily) () "" ""))
+
+  ;; Muestra agenda con un par de saltos de línea
+  (add-hook 'org-agenda-finalize-hook
+  	  (lambda ()
+  	    (goto-char (point-min))
+  	    (insert "\n\n")))
 #+end_src
 
 
