@@ -296,7 +296,11 @@ Con which-key, se muestra ayuda en un minibuffer si empezamos a introducir una c
   (setq which-key-idle-delay 0.3))
 #+end_src
 
+** EBDB: Gestor de contactos
 
+#+begin_src elisp
+  (use-package ebdb)
+#+end_src
 
 ** FORMATOS
 
