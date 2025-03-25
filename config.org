@@ -585,6 +585,14 @@ Algunas por aquí, otras por fichero externo.
 	   :empty-lines-after 1)))
 #+end_src
 
+*** TARGETS PARA ORG-REFILE
+A la hora de hacer org-refile se cargan los headings de los ficheros de la agenda para permitir fácil reagendado.
+
+#+begin_src elisp
+  (setq org-refile-targets
+        '((nil :maxlevel . 2)
+  	(org-agenda-files :maxlevel . 2)))
+#+end_src
 
 *** ORG-ROAM
 Gestor de información con backlincks basado en Emacs Lisp y sostenido por SQLite.
