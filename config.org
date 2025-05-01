@@ -2,7 +2,7 @@
 
 * EMACS CONFIG
 :PROPERTIES:
-:header-args: elisp :tangle ~/.emacs.d/init.el :comments no
+:header-args: elisp :tangle ~/.emacs.d/init.el :comments no :results none
 :END:
 
 Los bloques de código de dentro de este fichero están configurados para que, al guardarse este fichero, se construya una serie de archivos a partir de ellos que serán los *ficheros de configuración de Emacs*. Estos ficheros se ejecutan al iniciarse Emacs realizando toda la configuración.
@@ -12,7 +12,7 @@ Salvo que se especifique con una propiedad de tipo =header-args= los bloques de 
 
 ** CONFIGURACIÓN PRE-CARGA
 :PROPERTIES:
-:header-args: elisp :tangle ~/.emacs.d/early-init.el :comments no
+:header-args: elisp :tangle ~/.emacs.d/early-init.el :comments no :results none
 :END:
 
 El fichero =early-init.el= nos permite cargar configuraciones incluso antes de que se inicialicen ciertos aspectos fundamentales de Emacs, como los paquetes y el sistema gráfico.
@@ -25,6 +25,18 @@ Desactivamos la carga automática de paquetes al inicio ya que el gestor de paqu
 #+begin_src elisp
   (setq package-enable-at-startup nil)
 #+end_src
+
+#+RESULTS:
+
+*** Desactivar Org built-in
+
+Desactivamos la build de Org que viene en Emacs para cargar la que le indiquemos en la config y asegurar que usamos siempre la misma.
+
+#+begin_src elisp
+  (setq load-path (remove (expand-file-name "org" data-directory) load-path))
+#+end_src
+
+
 *** UTF-8 como codificación de texto por defecto
 
 #+begin_src elisp
@@ -33,6 +45,8 @@ Desactivamos la carga automática de paquetes al inicio ya que el gestor de paqu
   (set-keyboard-coding-system 'utf-8-unix)
   (set-terminal-coding-system 'utf-8-unix)
 #+end_src
+
+#+RESULTS:
 
 *** Declutter de la interfaz
 
@@ -45,53 +59,84 @@ Si se desactivan aquí los elementos de la interfaz que no se vayan a usar, no s
   (tooltip-mode -1)                      ; Tooltips
 #+end_src
 
+#+RESULTS:
+
 
 
 ** GESTIÓN DE PAQUETES
 
-
 *** Repositorios de paquetes
 
-Para instalar paquetes se necesita cargar el paquete interno =package= e inicializarlo apuntando a los paquetes de repositorios que vayamos a usar.
-
-En mi caso el repositorio es MELPA. Existe la opción de usar package.el y bajar cada repositorio directamente del Github del autor, para mantenerse así en versiones más recientes.
+Para instalar paquetes se necesita cargar el paquete interno =package=, e inicializarlo apuntando a los paquetes de repositorios que vayamos a usar.
 
 Tras inicializarlo le indicamos también que solo intente refrescar la lista de paquetes disponibles cuando no haya una lista de paquetes ya guardada.
 
 #+begin_src elisp
-  (require 'package)
   (setq package-archives'(("melpa" . "https://melpa.org/packages/")))
-  (package-initialize)
-  (unless package-archive-contents
-    (package-refresh-contents))
-#+end_src
+  #+end_src
 
-*** STRAIGHT.EL
+#+RESULTS:
+
+*** [[https://github.com/progfolio/elpaca][ELPACA]]
+
+Gestor de paquetes que clona los paquetes desde los repositorios correspondientes y buildea los paquetes asíncronamente.
+
+**** Bootstrap
 
 #+begin_src elisp
-  (defvar bootstrap-version)
-  (let ((bootstrap-file
-	 (expand-file-name
-	  "straight/repos/straight.el/bootstrap.el"
-	  (or (bound-and-true-p straight-base-dir)
-	      user-emacs-directory)))
-	(bootstrap-version 7))
-    (unless (file-exists-p bootstrap-file)
-      (with-current-buffer
-	  (url-retrieve-synchronously
-	   "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
-	   'silent 'inhibit-cookies)
-	(goto-char (point-max))
-	(eval-print-last-sexp)))
-    (load bootstrap-file nil 'nomessage))
+  ;; This will clone Elpaca into your user-emacs-directory under the elpaca subdirectory.
+  ;; It then builds and activates Elpaca.
+  (defvar elpaca-installer-version 0.11)
+  (defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
+  (defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
+  (defvar elpaca-repos-directory (expand-file-name "repos/" elpaca-directory))
+  (defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
+                                :ref nil :depth 1 :inherit ignore
+                                :files (:defaults "elpaca-test.el" (:exclude "extensions"))
+                                :build (:not elpaca--activate-package)))
+  (let* ((repo  (expand-file-name "elpaca/" elpaca-repos-directory))
+         (build (expand-file-name "elpaca/" elpaca-builds-directory))
+         (order (cdr elpaca-order))
+         (default-directory repo))
+    (add-to-list 'load-path (if (file-exists-p build) build repo))
+    (unless (file-exists-p repo)
+      (make-directory repo t)
+      (when (<= emacs-major-version 28) (require 'subr-x))
+      (condition-case-unless-debug err
+          (if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
+                    ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
+                                                    ,@(when-let* ((depth (plist-get order :depth)))
+                                                        (list (format "--depth=%d" depth) "--no-single-branch"))
+                                                    ,(plist-get order :repo) ,repo))))
+                    ((zerop (call-process "git" nil buffer t "checkout"
+                                          (or (plist-get order :ref) "--"))))
+                    (emacs (concat invocation-directory invocation-name))
+                    ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
+                                          "--eval" "(byte-recompile-directory \".\" 0 'force)")))
+                    ((require 'elpaca))
+                    ((elpaca-generate-autoloads "elpaca" repo)))
+              (progn (message "%s" (buffer-string)) (kill-buffer buffer))
+            (error "%s" (with-current-buffer buffer (buffer-string))))
+        ((error) (warn "%s" err) (delete-directory repo 'recursive))))
+    (unless (require 'elpaca-autoloads nil t)
+      (require 'elpaca)
+      (elpaca-generate-autoloads "elpaca" repo)
+      (let ((load-source-file-function nil)) (load "./elpaca-autoloads"))))
+  (add-hook 'after-init-hook #'elpaca-process-queues)
+  (elpaca `(,@elpaca-order))
+
+  ;; For systems that cannot create symlinks:
+  (when (eq system-type 'windows-nt) (elpaca-no-symlink-mode))
 #+end_src
 
-#+begin_src elisp 
-  (straight-use-package 'org)
-#+end_src
-*** [[https://github.com/jwiegley/use-package][USE-PACKAGE]]
+#+RESULTS:
+
+
+**** [[https://github.com/jwiegley/use-package][USE-PACKAGE]] en Elpaca
 
 El paquete =use-package= nos proporciona una macro =(use-package paquete [macro codigo])= que nos permite configurar nuestros paquetes de Emacs de una forma eficiente y ordenada a partir de este punto en la configuración.
+
+Con =elpaca-use-package= podemos usar esta macro en Elpaca.
 
 - Con la variable =use-package-always-ensure= puesta a =t= se asegura que los paquetes a los que referencie con =use-package= se cargarán al iniciarse Emacs (eager loading).
   - Para no cargar paquetes específicos al inicio, podemos configurarlos con =(use-package paquete :ensure nil)=
@@ -102,11 +147,26 @@ El paquete =use-package= nos proporciona una macro =(use-package paquete [macro 
   - =:after= asegura que el paquete se carga tras haber terminado la carga de los otros paquetes aquí especificados.
 
 #+begin_src elisp
-  (straight-use-package 'use-package)
-  (setq straight-use-package-by-default t)
+  (elpaca elpaca-use-package
+  	(elpaca-use-package-mode))
+
+  (setq use-package-always-ensure t)
 #+end_src
 
+#+RESULTS:
+: t
 
+** Carga preventiva de paquetes
+
+Se cargan aquí paquetes que, de no cargarse con Elpaca al inicio del init, causarían problemas a causa de cargarse en su lugar la versión built-in (ej: Org carga la versión que trae Emacs en lugar de la que clonamos)
+
+#+begin_src elisp
+  (use-package org)
+  (use-package transient)
+#+end_src
+
+#+RESULTS:
+: [nil 26643 39162 820297 nil elpaca-process-queues nil nil 941000 nil]
 
 ** NAVEGACIÓN
 
@@ -117,9 +177,9 @@ El paquete =use-package= nos proporciona una macro =(use-package paquete [macro 
     :init
 
     (setq evil-want-integration t
-	  evil-want-keybinding nil
-	  evil-want-C-u-scroll t
-	  evil-want-C-i-jump nil)
+  	  evil-want-keybinding nil
+  	  evil-want-C-u-scroll t
+  	  evil-want-C-i-jump nil)
     
     :config
     (define-key evil-insert-state-map (kbd "C-g") 'evil-normal-state)
@@ -129,13 +189,6 @@ El paquete =use-package= nos proporciona una macro =(use-package paquete [macro 
     (evil-global-set-key 'motion "k" 'evil-previous-visual-line)
     (evil-set-initial-state 'messages-buffer-mode 'normal)
     (evil-set-initial-state 'dashboard-mode 'normal)
-    ;; Por alguna razón, este comando dispara un error de invalid read syntax cuando
-    ;; se trata de evaluar el buffer tras modificarlo, sin importar que se haya guardado o no.
-    ;; La ubicación del error es siempre el fin de la expresión que contenga este comando;
-    ;; Si saco el comando de este bloque de configuración, el error se da en la línea en la que se ejecuta.
-    ;; Sin embargo solo pasa una vez tras evaluar el buffer! se puede volver a evaluar y ahí no da problemas.
-    ;; Weird shit
-    ;; TODO find cause, fix?
     (evil-mode 1))
 
   (use-package evil-collection
@@ -143,6 +196,9 @@ El paquete =use-package= nos proporciona una macro =(use-package paquete [macro 
       :config
       (evil-collection-init))
 #+end_src
+
+#+RESULTS:
+: [nil 26643 39169 294966 nil elpaca-process-queues nil nil 606000 nil]
 
 
 *** DIRED: Exporador de ficheros de Emacs
@@ -155,6 +211,9 @@ Oculta ficheros denominados como "no interesantes": auto-saves, backups, y otros
 	      (dired-omit-mode)))
 #+END_SRC
 
+#+RESULTS:
+| #[nil ((dired-omit-mode)) nil] |
+
 
 *** Historiales
 **** Historial de ficheros recientes
@@ -162,6 +221,9 @@ Oculta ficheros denominados como "no interesantes": auto-saves, backups, y otros
 #+BEGIN_SRC elisp
   (recentf-mode 1)
 #+END_SRC
+
+#+RESULTS:
+: t
 
 **** Historial de comandos recientes
 
@@ -175,6 +237,9 @@ A la hora de ejecutar un comando con =M-x= o ejecutar código con =M-;= podemos 
   (savehist-mode 1)
 #+END_SRC
 
+#+RESULTS:
+: t
+
 
 *** Buffers
 **** Config general de buffers
@@ -183,6 +248,9 @@ Aplica a todos los buffers de modos que no representen directamente ficheros (Ej
 #+begin_src elisp
   (setq global-auto-revert-non-file-buffers t)
 #+end_src
+
+#+RESULTS:
+: t
 
 **** Buffers de ficheros
 ***** Actualizar buffers si se detectan cambios
@@ -193,11 +261,17 @@ Eso sí, si hay cambios sin guardar, pregunta antes si se quiere o no actualizar
   (global-auto-revert-mode 1)
 #+end_src
 
+#+RESULTS:
+: t
+
 ***** Recordar ultima posición del cursor al abrir un fichero
 
 #+begin_src elisp
   (save-place-mode 1)
 #+end_src
+
+#+RESULTS:
+: t
 
 
 *** Otras configuraciones
@@ -208,16 +282,24 @@ Eso sí, si hay cambios sin guardar, pregunta antes si se quiere o no actualizar
   (fset 'yes-or-no-p 'y-or-n-p)
 #+end_src
 
+#+RESULTS:
+: y-or-n-p
+
 **** No usar dialogs externos para ningún prompt
 Todos los prompts de input se llevarán por Emacs.
 #+begin_src elisp
   (setq use-dialog-box nil)
 #+end_src
 
+#+RESULTS:
+
 **** El propio Emacs gestiona las requests de contraseña
 #+begin_src elisp
   (setq epg-pinentry-mode 'loopback)
 #+end_src
+
+#+RESULTS:
+: loopback
 
 
 
@@ -232,7 +314,12 @@ Ivy por sí solo nos ofrece un sistema de filtrado flexible basado en regex y qu
 #+BEGIN_SRC elisp
   (use-package ivy
     :config (ivy-mode))
+  (use-package swiper
+    :after ivy)
 #+END_SRC
+
+#+RESULTS:
+: [nil 26643 39169 344887 nil elpaca-process-queues nil nil 224000 nil]
 
 
 *** [[https://github.com/abo-abo/swiper?tab=readme-ov-file#counsel][COUNSEL]]: El vanilla+ por excelencia
@@ -243,8 +330,12 @@ Counsel mejora varias de los comandos de Emacs integrando Ivy en la interfaz que
 
 #+BEGIN_SRC elisp
   (use-package counsel
+    :after (ivy swiper)
     :config (counsel-mode))
 #+END_SRC
+
+#+RESULTS:
+: [nil 26643 39169 366591 nil elpaca-process-queues nil nil 282000 nil]
 
 
 *** [[https://github.com/Yevgnen/ivy-rich][IVY-RICH]]
@@ -256,6 +347,9 @@ Mejora de interfaz de Ivy, más informativa y configurable.
     :after (ivy counsel)
     :init (ivy-rich-mode 1))
 #+END_SRC
+
+#+RESULTS:
+: [nil 26643 39169 388288 nil elpaca-process-queues nil nil 632000 nil]
 
 
 
@@ -272,14 +366,11 @@ Sustituye varios de los comandos de ayuda de Emacs (y Counsel!) por otros que of
      :custom
      ;; Comandos de ayuda de Counsel llamarán a las funciones de Helpful:
      (counsel-describe-function-function #'helpful-callable)
-     (counsel-describe-variable-function #'helpful-variable)
-     :config
-     (general-def
-       [remap describe-function]      'counsel-describe-function
-       [remap describe-command]       'helpful-command
-       [remap describe-variable]      'counsel-describe-variable
-       [remap describe-key]           'helpful-key))
+     (counsel-describe-variable-function #'helpful-variable))
 #+END_SRC
+
+#+RESULTS:
+: [nil 26643 39169 410199 nil elpaca-process-queues nil nil 98000 nil]
 
 
 *** [[https://github.com/justbur/emacs-which-key][WHICH-KEY]]: Descripción de las acciones asociadas a keybinds
@@ -296,11 +387,17 @@ Con which-key, se muestra ayuda en un minibuffer si empezamos a introducir una c
   (setq which-key-idle-delay 0.3))
 #+end_src
 
+#+RESULTS:
+: [nil 26643 39169 429380 nil elpaca-process-queues nil nil 149000 nil]
+
 ** EBDB: Gestor de contactos
 
 #+begin_src elisp
   (use-package ebdb)
 #+end_src
+
+#+RESULTS:
+: [nil 26643 39171 536913 nil elpaca-process-queues nil nil 118000 nil]
 
 ** FORMATOS
 
@@ -309,6 +406,9 @@ Con which-key, se muestra ayuda en un minibuffer si empezamos a introducir una c
 #+begin_src elisp
   (use-package pdf-tools)
 #+end_src
+
+#+RESULTS:
+: [nil 26643 39171 561372 nil elpaca-process-queues nil nil 987000 nil]
 
 
 
@@ -322,11 +422,15 @@ El paquete Magit es un wrapper de Git para Emacs.
 
 #+begin_src elisp
   (use-package magit
+    :after transient
     :commands (magit-status magit-get-current-branch)
     :custom
     ;; Cuando visualizamos diffs en Magit, el buffer ocupa todo el frame
     (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
 #+end_src
+
+#+RESULTS:
+: [nil 26643 39171 583191 nil elpaca-process-queues nil nil 581000 nil]
 
 
 *** ORG-BABEL: PROGRAMACIÓN LITERARIA
@@ -336,19 +440,24 @@ El paquete Magit es un wrapper de Git para Emacs.
 Carga =Elisp=, =Java=, =Python= y =SQL=.
 
 #+begin_src elisp
-  (org-babel-do-load-languages
-   'org-babel-load-languages
-   '((emacs-lisp . t)
-     (java . t)
-     (python . t)
-     (sql . t)))
+  (with-eval-after-load 'org
+    (org-babel-do-load-languages
+     'org-babel-load-languages
+     '((emacs-lisp . t)
+       (java . t)
+       (python . t)
+       (sql . t))))
 #+end_src
+
+#+RESULTS:
 
 **** SALTAR CONFIRMACIÓN PREVIA A EJECUTAR BLOQUES DE CÓDIGO
 
 #+begin_src elisp
   (setq org-confirm-babel-evaluate nil)
 #+end_src
+
+#+RESULTS:
 
 
 *** PROJECTILE: GESTIÓN DE PROYECTOS
@@ -371,12 +480,18 @@ Carga =Elisp=, =Java=, =Python= y =SQL=.
   (setq	projectile-completion-system 'ivy))
 #+end_src
 
+#+RESULTS:
+: [nil 26643 39171 610870 nil elpaca-process-queues nil nil 743000 nil]
+
 **** [[https://github.com/ericdanan/counsel-projectile][COUNSEL-PROJECTILE]]: Integración de Ivy en los buffers de Projectile
 
 #+begin_src elisp
   (use-package counsel-projectile                                  
     :init (counsel-projectile-mode))
 #+end_src
+
+#+RESULTS:
+: [nil 26643 39171 632780 nil elpaca-process-queues nil nil 477000 nil]
 
 
 *** MEJORAS VISUALES PARA LA PROGRAMACIÓN
@@ -399,6 +514,9 @@ Carga =Elisp=, =Java=, =Python= y =SQL=.
     :hook (prog-mode . rainbow-delimiters-mode))
 #+end_src
 
+#+RESULTS:
+: [nil 26643 39171 655194 nil elpaca-process-queues nil nil 809000 nil]
+
 ** INTERFAZ
 
 *** DOOM-MODELINE: Línea de modos mejorada
@@ -419,6 +537,9 @@ DOOM-ModeLine mejora visualmente la modeline y le añade información extra de u
     :if (display-graphic-p))
 #+end_src
 
+#+RESULTS:
+: [nil 26643 39171 826842 nil elpaca-process-queues nil nil 958000 nil]
+
 
 
 *** TEMAS
@@ -433,6 +554,9 @@ Uso el tema =modus-vivendi=.
     (load-theme 'modus-vivendi t))
 #+end_src
 
+#+RESULTS:
+: [nil 26643 39171 849278 nil elpaca-process-queues nil nil 178000 nil]
+
 
 *** CENTRADO DE TEXTO
 Se centra el texto para los buffers de Org y org-agenda.
@@ -444,6 +568,9 @@ Se centra el texto para los buffers de Org y org-agenda.
     (add-hook 'org-mode-hook 'olivetti-mode))
 #+end_src
 
+#+RESULTS:
+: [nil 26643 39171 876981 nil elpaca-process-queues nil nil 198000 nil]
+
 
 *** GOLDEN-RATIO.EL: DIVISION DE VENTANAS
 
@@ -454,6 +581,9 @@ La ventana que se está editando se vuelve más grande que el resto automáticam
     :config
     (golden-ratio-mode 1))
 #+end_src
+
+#+RESULTS:
+: [nil 26643 39171 902608 nil elpaca-process-queues nil nil 505000 nil]
 
 
 *** MEJORAS DEL RATÓN
@@ -468,6 +598,9 @@ Sigue siendo una herramienta útil por mucho que quiera evitarlo.
     (iscroll-mode))
 #+end_src
 
+#+RESULTS:
+: [nil 26643 39171 930580 nil elpaca-process-queues nil nil 982000 nil]
+
 
 *** OTRAS CONFIGS DE INTERFAZ
 
@@ -477,15 +610,20 @@ Sigue siendo una herramienta útil por mucho que quiera evitarlo.
   (set-fringe-mode 0)                    ; Activa los márgenes pero los esconde
 #+end_src
 
+#+RESULTS:
+: ((undecorated . t) (fullscreen . maximized) (alpha-background . 80) (vertical-scroll-bars) (left-fringe . 0) (right-fringe . 0))
+
 
 ** ORG: He aquí. He aquí la chicha.
 
 #+begin_src elisp
-    (use-package org
-      :config
-      (setq org-directory "~/org")
-      (add-to-list 'org-modules 'org-habit))
+  (with-eval-after-load 'org
+  (setq org-directory "~/org")
+  (add-to-list 'org-modules 'org-habit))
 #+end_src
+
+#+RESULTS:
+: [nil 26643 39171 956906 nil elpaca-process-queues nil nil 881000 nil]
 
 
 *** ORG-AGENDA
@@ -498,6 +636,9 @@ Ficheros que se tendrán en cuenta a la hora de montar la agenda. De momento los
 			       "~/org/gtd/tickler.org"))
 #+end_src
 
+#+RESULTS:
+| ~/org/gtd/inbox.org | ~/org/gtd/gtd.org | ~/org/gtd/tickler.org |
+
 **** INTERFAZ DE LA AGENDA
 
 ***** Agenda diaria
@@ -507,6 +648,9 @@ La agenda por defecto muestra las entradas para un solo día en lugar de la agen
   (setq org-agenda-span 1
 	org-agenda-start-day "+0d")
 #+end_src
+
+#+RESULTS:
+: +0d
 
 ***** Declutter visual
 Configuración de los elementos de la agenda que se muestran o dejan de mostrar. Además quita las lineas que muestra org-agenda por defecto para montar un horario.
@@ -532,6 +676,10 @@ Configuración de los elementos de la agenda que se muestran o dejan de mostrar.
   	    (goto-char (point-min))
   	    (insert "\n\n")))
 #+end_src
+
+#+RESULTS:
+| org-modern-agenda | #[nil ((goto-char (point-min)) (insert |
+
 
 
 *** ORG-TODO
@@ -559,13 +707,21 @@ Configuración de los elementos de la agenda que se muestran o dejan de mostrar.
       )))
 #+end_src
 
+#+RESULTS:
+| sequence | TODO(t) | NEXT(n) |         |   | DONE(d) |            |            |
+| sequence | WAIT(w) | HOLD(h) | IDEA(i) |   |         | NOTE(o@/!) | STOP(s@/!) |
+
 *** ORG-CAPTURE
 
 - =org-default-notes-file=: Fichero destinatario de las nuevas capturas por defecto.
 
 #+begin_src elisp
-  (setq org-default-notes-file (concat org-directory "/gtd/inbox.org"))
+  (with-eval-after-load 'org
+  (setq org-default-notes-file (concat org-directory "/gtd/inbox.org")))
 #+end_src
+
+#+RESULTS:
+: ~/org/gtd/inbox.org
 
 **** PLANTILLAS DE ORG-CAPTURE
 Algunas por aquí, otras por fichero externo.
@@ -585,6 +741,10 @@ Algunas por aquí, otras por fichero externo.
 	   :empty-lines-after 1)))
 #+end_src
 
+#+RESULTS:
+| t | TODO | entry | (file+headline ~/org/gtd/gtd.org INBOX) | ** TODO %? | :empty-lines-after | 1 |
+| c | Cita | entry | (file+headline ~/org/gtd/gtd.org INBOX) | ** %?      |                    |   |
+
 *** TARGETS PARA ORG-REFILE
 A la hora de hacer org-refile se cargan los headings de los ficheros de la agenda para permitir fácil reagendado.
 
@@ -593,6 +753,9 @@ A la hora de hacer org-refile se cargan los headings de los ficheros de la agend
         '((nil :maxlevel . 2)
   	(org-agenda-files :maxlevel . 2)))
 #+end_src
+
+#+RESULTS:
+: ((nil :maxlevel . 2) (org-agenda-files :maxlevel . 2))
 
 *** ORG-ROAM
 Gestor de información con backlincks basado en Emacs Lisp y sostenido por SQLite.
@@ -612,6 +775,9 @@ Gestor de información con backlincks basado en Emacs Lisp y sostenido por SQLit
     (org-roam-db-autosync-mode))
 #+end_src
 
+#+RESULTS:
+: [nil 26643 39172 171541 nil elpaca-process-queues nil nil 701000 nil]
+
 
 
 *** ORG-MODERN
@@ -623,6 +789,9 @@ Mejora visual de los elementos de Org-Mode
     :config
     (global-org-modern-mode))
 #+end_src
+
+#+RESULTS:
+: [nil 26643 39172 203267 nil elpaca-process-queues nil nil 616000 nil]
 
 
 *** ORG-HABIT: Tareas repetidas
@@ -638,6 +807,9 @@ Mejora visual de los elementos de Org-Mode
 	org-hide-emphasis-markers t)
 #+end_src
 
+#+RESULTS:
+: t
+
 **** Escalado automático de imágenes
 
 - =org-image-actual-width=: Determina el ancho de las imágenes en la pantalla.
@@ -645,6 +817,8 @@ Mejora visual de los elementos de Org-Mode
 #+begin_src elisp
   (setq org-image-actual-width nil)
 #+end_src
+
+#+RESULTS:
 
 
 ** YASNIPPET: Plantillas para todo
@@ -656,6 +830,9 @@ Mejora visual de los elementos de Org-Mode
     (yas-global-mode 1))
 #+end_src
 
+#+RESULTS:
+: [nil 26643 39172 236840 nil elpaca-process-queues nil nil 920000 nil]
+
 ** ATAJOS DE TECLADO: [[https://github.com/noctuid/general.el][GENERAL.EL]] y [[https://github.com/abo-abo/hydra][HYDRA]]
 
 - [[https://github.com/noctuid/general.el][General.el]] ofrece una forma sencilla de establecer keybinds a traves de todo Emacs.
@@ -664,10 +841,23 @@ Mejora visual de los elementos de Org-Mode
 - [[https://github.com/abo-abo/hydra][Hydra]] brinda atajos stackeables: Activar una hidra permite establecer "mini-modos" con los que ejecutar otros comandos en rápida sucesión.
 
 #+begin_src elisp
-  (use-package general)
-  (use-package hydra)
+  (use-package general :ensure (:wait t))
+  (use-package hydra :ensure (:wait t))
 #+end_src
 
+#+RESULTS:
+: [nil 26643 39172 293171 nil elpaca-process-queues nil nil 302000 nil]
+
+*** REMAPEOS
+
+  #+begin_src elisp
+    (eval-after-load 'general
+      (general-def
+       [remap describe-function]      'counsel-describe-function
+       [remap describe-command]       'helpful-command
+       [remap describe-variable]      'counsel-describe-variable
+       [remap describe-key]           'helpful-key))
+  #+end_src
 
 *** ATAJOS GENERALES
 Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui van atajos que aplican a todo Emacs en cuanto a funcionalidad que no encajo en otros sitios.
@@ -709,6 +899,8 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
     "C-d"      'ivy-reverse-i-search-kill)
 #+end_src
 
+#+RESULTS:
+
 
 *** ATAJOS PARA PROGRAMACIÓN
 
@@ -727,6 +919,8 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
     "es" 'org-babel-execute-subtree
     "eb" 'org-babel-execute-buffer)
 #+end_src
+
+#+RESULTS:
 
 
 *** ATAJOS DE ORG
@@ -765,6 +959,8 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
       "C-M-i"  'completion-at-point)
 #+end_src
 
+#+RESULTS:
+
 
 *** HIDRAS
 
@@ -783,6 +979,8 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
     "C-M-z" '(hydra-zoom/body :which-key "Zoom in or out text"))
 #+end_src
 
+#+RESULTS:
+
 
 ** FUNCIONES
 
@@ -799,6 +997,9 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
       (member day-of-week '(1 2 3 4 5))))
      #+end_src
 
+#+RESULTS:
+: org-timestamp-weekdayp
+
 - =org-agenda-toggle-completed= muestra u oculta los items ya completados en la agenda.
 
 #+begin_src elisp
@@ -810,6 +1011,9 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
 	  org-agenda-skip-deadline-if-done (not org-agenda-skip-deadline-if-done))
     (org-agenda-redo))
 #+end_src
+
+#+RESULTS:
+: org-agenda-toggle-completed
 
 
 *** ENLACES
@@ -823,6 +1027,9 @@ Definición de enlaces con acciones personalizadas.
    :follow #'org-babel-ref-resolve)
 #+end_src
 
+#+RESULTS:
+| :follow | org-babel-ref-resolve |
+
 
 ** CUSTOMIZACIÓN
 Las variables customizadas se guardan en fichero aparte que se carga en inicialización.
@@ -832,6 +1039,9 @@ Las variables customizadas se guardan en fichero aparte que se carga en iniciali
   (load custom-file 'noerror 'nomessage)
 #+end_src
 
+#+RESULTS:
+: t
+
 ** CONFIGS ESPECIFICAS: SEPARANDO CURRO DE CASA
 
 #+begin_src elisp
@@ -839,6 +1049,9 @@ Las variables customizadas se guardan en fichero aparte que se carga en iniciali
       (load (locate-user-emacs-file "work-init.el"))
     (load (locate-user-emacs-file "personal-init.el")))
   #+end_src
+
+#+RESULTS:
+: t
 
 ** CONFIGS. POR SISTEMA
 
@@ -851,6 +1064,9 @@ Al finalizar la ejecución del fichero init.el principal, pasamos a cargar confi
    ((eq system-type 'windows-nt)
     (load (locate-user-emacs-file "win-init.el"))))
 #+end_src
+
+#+RESULTS:
+: t
 
 Existen ahora mismo 2 ficheros de config especificos por equipo:
 
@@ -894,12 +1110,16 @@ Configuraciones útiles, cuando no esenciales, a la hora de ejecutar Emacs dentr
     "v" 'wsl-paste)
 #+end_src
 
+#+RESULTS:
+
 **** FUENTES (Linux)
 Para añadir fuentes nuevas bajo Emacs en WSL2, se ha de pegar las fuentes en =~/.fonts/= y actualizar la caché de fuentes con =$fc -cache -f=.
 
 #+begin_src elisp
   (set-face-attribute 'default nil :family "CaskaydiaMono Nerd Font Propo" :height 150)
 #+end_src
+
+#+RESULTS:
 
 **** TRANSPARENCIA
 Funciona solo en emacs-gtk.
@@ -909,6 +1129,9 @@ Funciona solo en emacs-gtk.
   (add-to-list 'default-frame-alist '(alpha-background . 80))
 #+end_src
 
+#+RESULTS:
+: ((undecorated . t) (fullscreen . maximized) (alpha-background . 80) (vertical-scroll-bars) (left-fringe . 0) (right-fringe . 0))
+
 **** TAMAÑO FRAME INICIAL Y NUEVOS FRAMES
 
 #+begin_src elisp
@@ -917,6 +1140,9 @@ Funciona solo en emacs-gtk.
   (add-to-list 'initial-frame-alist '(fullscreen . maximized))
   (add-to-list 'initial-frame-alist '(undecorated . t))
 #+end_src
+
+#+RESULTS:
+: ((undecorated . t) (fullscreen . maximized) (vertical-scroll-bars) (left-fringe . 0) (right-fringe . 0))
 
 
 *** CONFIG. WINDOWS
@@ -929,6 +1155,8 @@ Funciona solo en emacs-gtk.
 #+begin_src elisp
   (set-face-attribute 'default nil :family "CaskaydiaMono NFP" :height 150)
 #+end_src
+
+#+RESULTS:
 
 ** VARIABLES LOCALES
 
