@@ -46,7 +46,11 @@ Desactivamos la build de Org que viene en Emacs para cargar la que le indiquemos
   (set-terminal-coding-system 'utf-8-unix)
 #+end_src
 
-#+RESULTS:
+*** ANDROID: Permite a Emacs usar los binarios instalados en Termux
+
+#+begin_src elisp
+  (when (eq system-type 'android) (progn (setenv "PATH" (format "%s:%s" "/data/data/com.termux/files/usr/bin" (getenv "PATH"))) (push "/data/data/com.termux/files/usr/bin" exec-path)))
+#+end_src
 
 *** Declutter de la interfaz
 
@@ -57,9 +61,10 @@ Si se desactivan aquí los elementos de la interfaz que no se vayan a usar, no s
   (tool-bar-mode -1)                     ; Barra de herramientas
   (scroll-bar-mode -1)                   ; Scrollbar
   (tooltip-mode -1)                      ; Tooltips
+  (setq inhibit-startup-message t)  
 #+end_src
 
-#+RESULTS:
+
 
 
 
@@ -439,14 +444,13 @@ El paquete Magit es un wrapper de Git para Emacs.
 
 Carga =Elisp=, =Java=, =Python= y =SQL=.
 
-#+begin_src elisp
-  (with-eval-after-load 'org
-    (org-babel-do-load-languages
+#+begin_src elisp  
+  (org-babel-do-load-languages
      'org-babel-load-languages
      '((emacs-lisp . t)
        (java . t)
        (python . t)
-       (sql . t))))
+       (sql . t)))
 #+end_src
 
 #+RESULTS:
