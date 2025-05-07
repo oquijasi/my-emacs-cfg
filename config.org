@@ -24,18 +24,7 @@ Desactivamos la carga automática de paquetes al inicio ya que el gestor de paqu
 
 #+begin_src elisp
   (setq package-enable-at-startup nil)
-#+end_src
-
-#+RESULTS:
-
-*** Desactivar Org built-in
-
-Desactivamos la build de Org que viene en Emacs para cargar la que le indiquemos en la config y asegurar que usamos siempre la misma.
-
-#+begin_src elisp
-  (setq load-path (remove (expand-file-name "org" data-directory) load-path))
-#+end_src
-
+  #+end_src
 
 *** UTF-8 como codificación de texto por defecto
 
@@ -49,7 +38,7 @@ Desactivamos la build de Org que viene en Emacs para cargar la que le indiquemos
 *** ANDROID: Permite a Emacs usar los binarios instalados en Termux
 
 #+begin_src elisp
-  (when (eq system-type 'android) (progn (setenv "PATH" (format "%s:%s" "/data/data/com.termux/files/usr/bin" (getenv "PATH"))) (push "/data/data/com.termux/files/usr/bin" exec-path)))
+  (when (eq system-type 'android) (progn (setenv "PATH" (format "%s:%s" "/data/data/com.termux/files/usr/bin" (getenv "PATH"))) (push "/data/data/com.termux/files/usr/bin" exec-path) (setq touch-screen-display-keyboard t)))
 #+end_src
 
 *** Declutter de la interfaz
@@ -65,9 +54,6 @@ Si se desactivan aquí los elementos de la interfaz que no se vayan a usar, no s
 #+end_src
 
 
-
-
-
 ** GESTIÓN DE PAQUETES
 
 *** Repositorios de paquetes
@@ -80,7 +66,23 @@ Tras inicializarlo le indicamos también que solo intente refrescar la lista de 
   (setq package-archives'(("melpa" . "https://melpa.org/packages/")))
   #+end_src
 
-#+RESULTS:
+*** NO USAR BUILTIN ORG
+Si hay desfase entre el Org que me traigo con el gestor de paquetes puede pasar que parte de Emacs se cargue referenciando a la versión de Org que tengo instalada por defecto. Un dolor de cabeza.
+
+Quitamos las referencias a Org built-in y referenciamos a Elpaca.
+
+#+begin_src elisp
+;; Remove ALL Org paths (built-in or other) from load-path
+(setq load-path
+      (cl-remove-if 
+       (lambda (path) 
+         (or (string-match-p "/org\\(-[0-9.]+\\)?/" path)  ; Matches /org/ or /org-9.5/
+             (string-match-p "emacs/lisp/org" path)))       ; Built-in Org
+       load-path))
+
+;; Add Elpaca's Org path explicitly (ensure it takes precedence)
+(add-to-list 'load-path "~/.emacs.d/elpaca/builds/org")
+#+end_src
 
 *** [[https://github.com/progfolio/elpaca][ELPACA]]
 
@@ -132,6 +134,7 @@ Gestor de paquetes que clona los paquetes desde los repositorios correspondiente
 
   ;; For systems that cannot create symlinks:
   (when (eq system-type 'windows-nt) (elpaca-no-symlink-mode))
+
 #+end_src
 
 #+RESULTS:
@@ -166,26 +169,24 @@ Con =elpaca-use-package= podemos usar esta macro en Elpaca.
 Se cargan aquí paquetes que, de no cargarse con Elpaca al inicio del init, causarían problemas a causa de cargarse en su lugar la versión built-in (ej: Org carga la versión que trae Emacs en lugar de la que clonamos)
 
 #+begin_src elisp
-  (use-package org)
-  (use-package transient)
+    (use-package org
+      :defer nil)
+    (use-package transient)
 #+end_src
 
-#+RESULTS:
-: [nil 26643 39162 820297 nil elpaca-process-queues nil nil 941000 nil]
 
 ** NAVEGACIÓN
 
 *** EVIL: Vim motions en Emacs
 
 #+begin_src elisp
-  (use-package evil
-    :init
 
-    (setq evil-want-integration t
+  (setq evil-want-integration t
   	  evil-want-keybinding nil
   	  evil-want-C-u-scroll t
   	  evil-want-C-i-jump nil)
     
+  (use-package evil
     :config
     (define-key evil-insert-state-map (kbd "C-g") 'evil-normal-state)
     (define-key evil-insert-state-map (kbd "C-h") 'evil-delete-backward-char-and-join)
@@ -350,7 +351,7 @@ Mejora de interfaz de Ivy, más informativa y configurable.
 #+BEGIN_SRC elisp
   (use-package ivy-rich
     :after (ivy counsel)
-    :init (ivy-rich-mode 1))
+    :config (ivy-rich-mode 1))
 #+END_SRC
 
 #+RESULTS:
@@ -384,10 +385,10 @@ Con which-key, se muestra ayuda en un minibuffer si empezamos a introducir una c
 - =which-key-idle-delay= indica los segundos que tarda en aparecer la ayuda de which-key.
 
 #+begin_src elisp
-  (use-package which-key
-  :init (which-key-mode)
+  (use-package which-key 
   :diminish which-key-mode
   :config
+  (which-key-mode)
   ;; Tiempo que tarda en aparecer la ayuda
   (setq which-key-idle-delay 0.3))
 #+end_src
@@ -438,29 +439,6 @@ El paquete Magit es un wrapper de Git para Emacs.
 : [nil 26643 39171 583191 nil elpaca-process-queues nil nil 581000 nil]
 
 
-*** ORG-BABEL: PROGRAMACIÓN LITERARIA
-
-**** LENGUAJES DE PROGRAMACIÓN
-
-Carga =Elisp=, =Java=, =Python= y =SQL=.
-
-#+begin_src elisp  
-  (org-babel-do-load-languages
-     'org-babel-load-languages
-     '((emacs-lisp . t)
-       (java . t)
-       (python . t)
-       (sql . t)))
-#+end_src
-
-#+RESULTS:
-
-**** SALTAR CONFIRMACIÓN PREVIA A EJECUTAR BLOQUES DE CÓDIGO
-
-#+begin_src elisp
-  (setq org-confirm-babel-evaluate nil)
-#+end_src
-
 #+RESULTS:
 
 
@@ -468,12 +446,11 @@ Carga =Elisp=, =Java=, =Python= y =SQL=.
 
 #+begin_src elisp
   (use-package projectile
-  :diminish projectile-mode
-  :config (projectile-mode)
+  :diminish projectile-mode 
   :bind-keymap
   ("C-c p" . projectile-command-map)
-  :init
-
+  :config
+  (projectile-mode)
   ;; Cambiar de proyecto abre dired en el directorio del proyecto
   (setq projectile-switch-project-action #'projectile-dired)
 
@@ -491,7 +468,7 @@ Carga =Elisp=, =Java=, =Python= y =SQL=.
 
 #+begin_src elisp
   (use-package counsel-projectile                                  
-    :init (counsel-projectile-mode))
+    :config (counsel-projectile-mode))
 #+end_src
 
 #+RESULTS:
@@ -529,16 +506,16 @@ Esta línea muestra información como el modo de Emacs en el que estamos ahora m
 DOOM-ModeLine mejora visualmente la modeline y le añade información extra de utilidad.
 
 #+begin_src elisp
-  (use-package doom-modeline
-    :init (doom-modeline-mode 1)
-    :custom ((doom-modeline-height 20)))
+    (use-package doom-modeline
+      :custom ((doom-modeline-height 20))
+      :config (doom-modeline-mode 1))
 
-    ;; Muestra números de columna en la modeline
-  (column-number-mode)
+      ;; Muestra números de columna en la modeline
+    (column-number-mode)
 
-  ;; Iconos necesarios para DOOM-ModeLine
-  (use-package all-the-icons                             
-    :if (display-graphic-p))
+    ;; Iconos necesarios para DOOM-ModeLine
+    (use-package all-the-icons                             
+      :if (display-graphic-p))
 #+end_src
 
 #+RESULTS:
@@ -567,6 +544,7 @@ Se centra el texto para los buffers de Org y org-agenda.
 
 #+begin_src elisp
   (use-package olivetti
+    :after org
     :config
     (setq-default olivetti-body-width 0.8)
     (add-hook 'org-mode-hook 'olivetti-mode))
@@ -622,12 +600,40 @@ Sigue siendo una herramienta útil por mucho que quiera evitarlo.
 
 #+begin_src elisp
   (with-eval-after-load 'org
-  (setq org-directory "~/org")
-  (add-to-list 'org-modules 'org-habit))
+    (require 'org-agenda)
+    (require 'org-capture)
+    
+    (setq org-directory "~/org")
+    (add-to-list 'org-modules 'org-habit))  
 #+end_src
 
 #+RESULTS:
 : [nil 26643 39171 956906 nil elpaca-process-queues nil nil 881000 nil]
+
+*** ORG-BABEL: PROGRAMACIÓN LITERARIA
+
+**** LENGUAJES DE PROGRAMACIÓN
+
+Carga =Elisp=, =Java=, =Python= y =SQL=.
+
+#+begin_src elisp
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   
+   '((emacs-lisp . t)
+     (java . t)
+     (python . t)
+     (sql . t)))
+#+end_src
+
+#+RESULTS:
+
+**** SALTAR CONFIRMACIÓN PREVIA A EJECUTAR BLOQUES DE CÓDIGO
+
+#+begin_src elisp
+  (setq org-confirm-babel-evaluate nil)
+#+end_src
+
 
 
 *** ORG-AGENDA
@@ -770,6 +776,7 @@ Gestor de información con backlincks basado en Emacs Lisp y sostenido por SQLit
 
 #+begin_src elisp
   (use-package org-roam
+    :after org
     :custom
     (org-roam-directory "~/org/roam")
     (org-roam-completion-everywhere t)
@@ -1066,7 +1073,9 @@ Al finalizar la ejecución del fichero init.el principal, pasamos a cargar confi
    ((and (eq system-type 'gnu/linux) (file-exists-p "/etc/wsl.conf"))
     (load (locate-user-emacs-file "wsl-init.el")))
    ((eq system-type 'windows-nt)
-    (load (locate-user-emacs-file "win-init.el"))))
+    (load (locate-user-emacs-file "win-init.el")))
+   ((eq system-type 'android)
+    (load (locate-user-emacs-file "android-init.el"))))  
 #+end_src
 
 #+RESULTS:
@@ -1161,6 +1170,18 @@ Funciona solo en emacs-gtk.
 #+end_src
 
 #+RESULTS:
+
+
+*** CONFIG. ANDROID
+:PROPERTIES:
+:header-args: elisp :tangle ~/.emacs.d/android-init.el :comments no
+:END:
+
+**** Teclado en pantalla
+
+#+begin_src elisp
+  ;; (setq touch-screen-display-keyboard t)  
+#+end_src
 
 ** VARIABLES LOCALES
 
