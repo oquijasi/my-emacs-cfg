@@ -2,7 +2,7 @@
 
 * EMACS CONFIG
 :PROPERTIES:
-:header-args: elisp :tangle ~/.emacs.d/init.el :comments no :results none
+:header-args: elisp :tangle ~/.emacs :comments no :results none
 :END:
 
 Los bloques de código de dentro de este fichero están configurados para que, al guardarse este fichero, se construya una serie de archivos a partir de ellos que serán los *ficheros de configuración de Emacs*. Estos ficheros se ejecutan al iniciarse Emacs realizando toda la configuración.
@@ -75,7 +75,7 @@ Tras inicializarlo le indicamos también que solo intente refrescar la lista de 
 *** NO USAR BUILTIN ORG
 Si hay desfase entre el Org que me traigo con el gestor de paquetes puede pasar que parte de Emacs se cargue referenciando a la versión de Org que tengo instalada por defecto. Un dolor de cabeza.
 
-Quitamos las referencias a Org built-in y referenciamos a Elpaca.
+Quitamos las referencias a Org built-in y referenciamos a Straight.
 
 #+begin_src elisp
 ;; Remove ALL Org paths (built-in or other) from load-path
@@ -87,70 +87,41 @@ Quitamos las referencias a Org built-in y referenciamos a Elpaca.
        load-path))
 
 ;; Add Elpaca's Org path explicitly (ensure it takes precedence)
-(add-to-list 'load-path "~/.emacs.d/elpaca/builds/org")
+(add-to-list 'load-path "~/.emacs.d/straight/build/org")
 #+end_src
 
-*** [[https://github.com/progfolio/elpaca][ELPACA]]
+*** Straight
 
 Gestor de paquetes que clona los paquetes desde los repositorios correspondientes y buildea los paquetes asíncronamente.
 
 **** Bootstrap
 
 #+begin_src elisp
-  ;; This will clone Elpaca into your user-emacs-directory under the elpaca subdirectory.
-  ;; It then builds and activates Elpaca.
-  (defvar elpaca-installer-version 0.11)
-  (defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
-  (defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
-  (defvar elpaca-repos-directory (expand-file-name "repos/" elpaca-directory))
-  (defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
-                                :ref nil :depth 1 :inherit ignore
-                                :files (:defaults "elpaca-test.el" (:exclude "extensions"))
-                                :build (:not elpaca--activate-package)))
-  (let* ((repo  (expand-file-name "elpaca/" elpaca-repos-directory))
-         (build (expand-file-name "elpaca/" elpaca-builds-directory))
-         (order (cdr elpaca-order))
-         (default-directory repo))
-    (add-to-list 'load-path (if (file-exists-p build) build repo))
-    (unless (file-exists-p repo)
-      (make-directory repo t)
-      (when (<= emacs-major-version 28) (require 'subr-x))
-      (condition-case-unless-debug err
-          (if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
-                    ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
-                                                    ,@(when-let* ((depth (plist-get order :depth)))
-                                                        (list (format "--depth=%d" depth) "--no-single-branch"))
-                                                    ,(plist-get order :repo) ,repo))))
-                    ((zerop (call-process "git" nil buffer t "checkout"
-                                          (or (plist-get order :ref) "--"))))
-                    (emacs (concat invocation-directory invocation-name))
-                    ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
-                                          "--eval" "(byte-recompile-directory \".\" 0 'force)")))
-                    ((require 'elpaca))
-                    ((elpaca-generate-autoloads "elpaca" repo)))
-              (progn (message "%s" (buffer-string)) (kill-buffer buffer))
-            (error "%s" (with-current-buffer buffer (buffer-string))))
-        ((error) (warn "%s" err) (delete-directory repo 'recursive))))
-    (unless (require 'elpaca-autoloads nil t)
-      (require 'elpaca)
-      (elpaca-generate-autoloads "elpaca" repo)
-      (let ((load-source-file-function nil)) (load "./elpaca-autoloads"))))
-  (add-hook 'after-init-hook #'elpaca-process-queues)
-  (elpaca `(,@elpaca-order))
-
-  ;; For systems that cannot create symlinks:
-  (when (eq system-type 'windows-nt) (elpaca-no-symlink-mode))
-
+  (defvar bootstrap-version)
+  (let ((bootstrap-file
+         (expand-file-name
+  	"straight/repos/straight.el/bootstrap.el"
+  	(or (bound-and-true-p straight-base-dir)
+  	    user-emacs-directory)))
+        (bootstrap-version 7))
+    (unless (file-exists-p bootstrap-file)
+      (with-current-buffer
+  	(url-retrieve-synchronously
+  	 "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
+  	 'silent 'inhibit-cookies)
+        (goto-char (point-max))
+        (eval-print-last-sexp)))
+    (load bootstrap-file nil 'nomessage))
 #+end_src
 
 #+RESULTS:
 
 
-**** [[https://github.com/jwiegley/use-package][USE-PACKAGE]] en Elpaca
+**** [[https://github.com/jwiegley/use-package][USE-PACKAGE]] en Straight
 
 El paquete =use-package= nos proporciona una macro =(use-package paquete [macro codigo])= que nos permite configurar nuestros paquetes de Emacs de una forma eficiente y ordenada a partir de este punto en la configuración.
 
-Con =elpaca-use-package= podemos usar esta macro en Elpaca.
+Podemos usar esta macro en Straight.
 
 - Con la variable =use-package-always-ensure= puesta a =t= se asegura que los paquetes a los que referencie con =use-package= se cargarán al iniciarse Emacs (eager loading).
   - Para no cargar paquetes específicos al inicio, podemos configurarlos con =(use-package paquete :ensure nil)=
@@ -161,23 +132,20 @@ Con =elpaca-use-package= podemos usar esta macro en Elpaca.
   - =:after= asegura que el paquete se carga tras haber terminado la carga de los otros paquetes aquí especificados.
 
 #+begin_src elisp
-  (elpaca elpaca-use-package
-  	(elpaca-use-package-mode))
-
-  (setq use-package-always-ensure t)
+  (straight-use-package 'use-package)
+  (setq straight-use-package-by-default t)
 #+end_src
 
-#+RESULTS:
-: t
 
 ** Carga preventiva de paquetes
 
-Se cargan aquí paquetes que, de no cargarse con Elpaca al inicio del init, causarían problemas a causa de cargarse en su lugar la versión built-in (ej: Org carga la versión que trae Emacs en lugar de la que clonamos)
+Se cargan aquí paquetes que, de no cargarse con Straight al inicio del init, causarían problemas a causa de cargarse en su lugar la versión built-in (ej: Org carga la versión que trae Emacs en lugar de la que clonamos)
 
 #+begin_src elisp
-    (use-package org
-      :defer nil)
-    (use-package transient)
+  (use-package org)
+  (require 'org)
+  (use-package transient)
+  (require 'transient)
 #+end_src
 
 
@@ -740,8 +708,8 @@ Mejora visual de los elementos de Org-Mode
 - [[https://github.com/abo-abo/hydra][Hydra]] brinda atajos stackeables: Activar una hidra permite establecer "mini-modos" con los que ejecutar otros comandos en rápida sucesión.
 
 #+begin_src elisp
-  (use-package general :ensure (:wait t))
-  (use-package hydra :ensure (:wait t))
+  (use-package general)
+  (use-package hydra)
 #+end_src
 
 *** REMAPEOS
@@ -816,8 +784,6 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
     "eb" 'org-babel-execute-buffer)
 #+end_src
 
-#+RESULTS:
-
 
 *** ATAJOS DE ORG
 
@@ -855,8 +821,6 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
       "C-M-i"  'completion-at-point)
 #+end_src
 
-#+RESULTS:
-
 
 *** HIDRAS
 
@@ -875,8 +839,6 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
     "C-M-z" '(hydra-zoom/body :which-key "Zoom in or out text"))
 #+end_src
 
-#+RESULTS:
-
 
 ** FUNCIONES
 
@@ -893,8 +855,6 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
       (member day-of-week '(1 2 3 4 5))))
      #+end_src
 
-#+RESULTS:
-: org-timestamp-weekdayp
 
 - =org-agenda-toggle-completed= muestra u oculta los items ya completados en la agenda.
 
@@ -908,8 +868,7 @@ Valga la redundancia culpa del nombre del paquete usado para los atajos, aqui va
     (org-agenda-redo))
 #+end_src
 
-#+RESULTS:
-: org-agenda-toggle-completed
+
 
 
 *** ENLACES
@@ -923,8 +882,6 @@ Definición de enlaces con acciones personalizadas.
    :follow #'org-babel-ref-resolve)
 #+end_src
 
-#+RESULTS:
-| :follow | org-babel-ref-resolve |
 
 
 ** CUSTOMIZACIÓN
@@ -935,8 +892,6 @@ Las variables customizadas se guardan en fichero aparte que se carga en iniciali
   (load custom-file 'noerror 'nomessage)
 #+end_src
 
-#+RESULTS:
-: t
 
 ** CONFIGS ESPECIFICAS: SEPARANDO CURRO DE CASA
 
@@ -946,8 +901,6 @@ Las variables customizadas se guardan en fichero aparte que se carga en iniciali
     (load (locate-user-emacs-file "personal-init.el")))
   #+end_src
 
-#+RESULTS:
-: t
 
 ** CONFIGS. POR SISTEMA
 
@@ -963,108 +916,8 @@ Al finalizar la ejecución del fichero init.el principal, pasamos a cargar confi
     (load (locate-user-emacs-file "android-init.el"))))  
 #+end_src
 
-#+RESULTS:
-: t
 
-Existen ahora mismo 2 ficheros de config especificos por equipo:
-
-*** CONFIG. WSL2
-:PROPERTIES:
-:header-args: elisp :tangle ~/.emacs.d/wsl-init.el :comments no
-:END:
-
-Configuraciones útiles, cuando no esenciales, a la hora de ejecutar Emacs dentro de WSL2 en Windows.
-
-#+begin_src elisp
-  ;; Permite hacer copy/paste entre Windows e Emacs: https://www.lukas-barth.net/blog/emacs-wsl-copy-clipboard/
-  (setq select-active-regions nil)
-
-  ;; Abre las URLs con Firefox: https://hkvim.com/post/windows-setup/
-  (defun wsl-browse-url-xdg-open (url &optional ignored)
-    (interactive (browse-url-interactive-arg "URL: "))
-    (shell-command-to-string (concat "wslview " url)))
-
-  (advice-add #'browse-url-xdg-open :override #'wsl-browse-url-xdg-open)
-
-  ;; Windows host copy
-  (defun wsl-copy (start end)
-    (interactive "r")
-    (shell-command-on-region start end "clip.exe")
-    (deactivate-mark))
-
-  ;; Windows host paste
-  (defun wsl-paste ()
-    (interactive)
-    (let ((clipboard
-	   (shell-command-to-string "powershell.exe -command 'Get-Clipboard' 2> /dev/null")))
-      (setq clipboard (replace-regexp-in-string "\r" "" clipboard)) ; Remove Windows ^M characters
-      (setq clipboard (substring clipboard 0 -1)) ; Remove newline added by Powershell
-      (insert clipboard)))
-
-  ;; Atajos copy-paste de Windows
-  (general-def
-    :prefix "C-c w"
-    "c" 'wsl-copy
-    "v" 'wsl-paste)
-#+end_src
-
-#+RESULTS:
-
-**** FUENTES (Linux)
-Para añadir fuentes nuevas bajo Emacs en WSL2, se ha de pegar las fuentes en =~/.fonts/= y actualizar la caché de fuentes con =$fc -cache -f=.
-
-#+begin_src elisp
-  (set-face-attribute 'default nil :family "CaskaydiaMono Nerd Font Propo" :height 150)
-#+end_src
-
-#+RESULTS:
-
-**** TRANSPARENCIA
-Funciona solo en emacs-gtk.
-
-#+begin_src elisp
-  (set-frame-parameter nil 'alpha-background 80)
-  (add-to-list 'default-frame-alist '(alpha-background . 80))
-#+end_src
-
-#+RESULTS:
-: ((undecorated . t) (fullscreen . maximized) (alpha-background . 80) (vertical-scroll-bars) (left-fringe . 0) (right-fringe . 0))
-
-**** FRAMES SIN BORDES NI BARRA DE VENTANA
-
-#+begin_src elisp
-  (setq default-frame-alist
-        (append default-frame-alist '((undecorated . t)
-  				    (left . 0)
-  				    (top . 0)
-  				    (width . 160)
-  				    (height . 43))))
-  (setq initial-frame-alist
-        (append initial-frame-alist '((undecorated . t)
-  				    (left . 0)
-  				    (top . 0)
-  				    (width . 160)
-  				    (height . 43))))
-#+end_src
-
-**** ABRIR EMACS EN PANTALLA COMPLETA
-Algunas builds de Emacs en WSL + GTK no van bien con =maximized=.
-
-#+begin_src elisp
-;(add-hook 'window-setup-hook 'toggle-frame-maximized t)
-#+end_src
-
-
-#+RESULTS:
-: ((undecorated . t) (fullscreen . maximized) (vertical-scroll-bars) (left-fringe . 0) (right-fringe . 0))
-
-
-*** CONFIG. WINDOWS
-:PROPERTIES:
-:header-args: elisp :tangle ~/.emacs.d/win-init.el :comments no
-:END:
-
-**** FUENTES (Windows)
+**** FUENTES
 
 #+begin_src elisp
   (set-face-attribute 'default nil :family "CaskaydiaMono NFP" :height 150)
@@ -1088,12 +941,14 @@ Algunas builds de Emacs en WSL + GTK no van bien con =maximized=.
 
 Este código se ejecuta *al abrir este fichero de configuración*, y permite que la configuración se auto-exporte a los ficheros que usa Emacs al guardarse.
 
-Se puede añadir un código similar a la config para que esto sea así con todos los ficheros Org. Pero quiero mantenerlo especifico en los ficheros de Init así que así se va a quedar..
+Este fichero SOLO hará tangle si se abre desde Android
 
 # Local Variables:
 # eval: (progn
 #         (setq my-tangle-hook
-#               (lambda () (when (string-equal (buffer-file-name) (expand-file-name "~/.config/emacs/config.org"))
+#               (lambda () (when (and
+#                                 (eq system-type 'android)
+#                                 (string-equal (buffer-file-name) (expand-file-name "~/.config/emacs/config.org")))
 #                            (org-babel-tangle))))
 #         (add-hook 'after-save-hook my-tangle-hook nil t)
 #         (add-hook 'kill-buffer-hook
