@@ -20,10 +20,11 @@ El fichero =early-init.el= nos permite cargar configuraciones incluso antes de q
 
 *** Desactivar autorun del gestor de paquetes
 
-Desactivamos la carga automática de paquetes al inicio ya que el gestor de paquetes se configura en init.
+Desactivamos la carga automática de paquetes al inicio ya que package.el se configura en init.
 
 #+begin_src elisp
   (setq package-enable-at-startup nil)
+  (package-initialize
   #+end_src
 
 *** UTF-8 como codificación de texto por defecto
@@ -72,56 +73,9 @@ Tras inicializarlo le indicamos también que solo intente refrescar la lista de 
   (setq package-archives'(("melpa" . "https://melpa.org/packages/")))
   #+end_src
 
-*** NO USAR BUILTIN ORG
-Si hay desfase entre el Org que me traigo con el gestor de paquetes puede pasar que parte de Emacs se cargue referenciando a la versión de Org que tengo instalada por defecto. Un dolor de cabeza.
-
-Quitamos las referencias a Org built-in y referenciamos a Straight.
-
-#+begin_src elisp
-;; Remove ALL Org paths (built-in or other) from load-path
-(setq load-path
-      (cl-remove-if 
-       (lambda (path) 
-         (or (string-match-p "/org\\(-[0-9.]+\\)?/" path)  ; Matches /org/ or /org-9.5/
-             (string-match-p "emacs/lisp/org" path)))       ; Built-in Org
-       load-path))
-
-;; Add Elpaca's Org path explicitly (ensure it takes precedence)
-(add-to-list 'load-path "~/.emacs.d/straight/build/org")
-#+end_src
-
-*** Straight
-
-Gestor de paquetes que clona los paquetes desde los repositorios correspondientes y buildea los paquetes asíncronamente.
-
-**** Bootstrap
-
-#+begin_src elisp
-  (defvar bootstrap-version)
-  (let ((bootstrap-file
-         (expand-file-name
-  	"straight/repos/straight.el/bootstrap.el"
-  	(or (bound-and-true-p straight-base-dir)
-  	    user-emacs-directory)))
-        (bootstrap-version 7))
-    (unless (file-exists-p bootstrap-file)
-      (with-current-buffer
-  	(url-retrieve-synchronously
-  	 "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
-  	 'silent 'inhibit-cookies)
-        (goto-char (point-max))
-        (eval-print-last-sexp)))
-    (load bootstrap-file nil 'nomessage))
-#+end_src
-
-#+RESULTS:
-
-
-**** [[https://github.com/jwiegley/use-package][USE-PACKAGE]] en Straight
+**** [[https://github.com/jwiegley/use-package][USE-PACKAGE]] 
 
 El paquete =use-package= nos proporciona una macro =(use-package paquete [macro codigo])= que nos permite configurar nuestros paquetes de Emacs de una forma eficiente y ordenada a partir de este punto en la configuración.
-
-Podemos usar esta macro en Straight.
 
 - Con la variable =use-package-always-ensure= puesta a =t= se asegura que los paquetes a los que referencie con =use-package= se cargarán al iniciarse Emacs (eager loading).
   - Para no cargar paquetes específicos al inicio, podemos configurarlos con =(use-package paquete :ensure nil)=
@@ -132,8 +86,10 @@ Podemos usar esta macro en Straight.
   - =:after= asegura que el paquete se carga tras haber terminado la carga de los otros paquetes aquí especificados.
 
 #+begin_src elisp
-  (straight-use-package 'use-package)
-  (setq straight-use-package-by-default t)
+  (unless (package-installed-p 'use-package)
+    (package-install 'use-package))
+  (require 'use-package)
+  (setq use-package-always-ensure t)
 #+end_src
 
 
