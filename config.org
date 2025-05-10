@@ -38,7 +38,11 @@ Desactivamos la carga automática de paquetes al inicio ya que el gestor de paqu
 *** ANDROID: Permite a Emacs usar los binarios instalados en Termux
 
 #+begin_src elisp
-  (when (eq system-type 'android) (progn (setenv "PATH" (format "%s:%s" "/data/data/com.termux/files/usr/bin" (getenv "PATH"))) (push "/data/data/com.termux/files/usr/bin" exec-path) (setq touch-screen-display-keyboard t)))
+  (when (eq system-type 'android)
+    (progn
+      (setenv "PATH" (format "%s:%s" "/data/data/com.termux/files/usr/bin" (getenv "PATH")))
+      (push "/data/data/com.termux/files/usr/bin" exec-path)
+      (setq touch-screen-display-keyboard t)))
 #+end_src
 
 *** Declutter de la interfaz
@@ -46,11 +50,12 @@ Desactivamos la carga automática de paquetes al inicio ya que el gestor de paqu
 Si se desactivan aquí los elementos de la interfaz que no se vayan a usar, no se cargan en ningún momento.
 
 #+begin_src elisp
-  (menu-bar-mode -1)                     ; Barra del menú
-  (tool-bar-mode -1)                     ; Barra de herramientas
+  (when (not (eq system-type 'android))
+    (menu-bar-mode -1)                   ; Barra del menú
+    (tool-bar-mode -1))                  ; Barra de herramientas
+  
   (scroll-bar-mode -1)                   ; Scrollbar
   (tooltip-mode -1)                      ; Tooltips
-  (setq inhibit-startup-message t)  
 #+end_src
 
 
@@ -204,9 +209,6 @@ Se cargan aquí paquetes que, de no cargarse con Elpaca al inicio del init, caus
       (evil-collection-init))
 #+end_src
 
-#+RESULTS:
-: [nil 26643 39169 294966 nil elpaca-process-queues nil nil 606000 nil]
-
 
 *** DIRED: Exporador de ficheros de Emacs
 **** Ocultar ficheros no interesantes
@@ -218,9 +220,6 @@ Oculta ficheros denominados como "no interesantes": auto-saves, backups, y otros
 	      (dired-omit-mode)))
 #+END_SRC
 
-#+RESULTS:
-| #[nil ((dired-omit-mode)) nil] |
-
 
 *** Historiales
 **** Historial de ficheros recientes
@@ -228,9 +227,6 @@ Oculta ficheros denominados como "no interesantes": auto-saves, backups, y otros
 #+BEGIN_SRC elisp
   (recentf-mode 1)
 #+END_SRC
-
-#+RESULTS:
-: t
 
 **** Historial de comandos recientes
 
@@ -244,9 +240,6 @@ A la hora de ejecutar un comando con =M-x= o ejecutar código con =M-;= podemos 
   (savehist-mode 1)
 #+END_SRC
 
-#+RESULTS:
-: t
-
 
 *** Buffers
 **** Config general de buffers
@@ -255,9 +248,6 @@ Aplica a todos los buffers de modos que no representen directamente ficheros (Ej
 #+begin_src elisp
   (setq global-auto-revert-non-file-buffers t)
 #+end_src
-
-#+RESULTS:
-: t
 
 **** Buffers de ficheros
 ***** Actualizar buffers si se detectan cambios
@@ -268,17 +258,11 @@ Eso sí, si hay cambios sin guardar, pregunta antes si se quiere o no actualizar
   (global-auto-revert-mode 1)
 #+end_src
 
-#+RESULTS:
-: t
-
 ***** Recordar ultima posición del cursor al abrir un fichero
 
 #+begin_src elisp
   (save-place-mode 1)
 #+end_src
-
-#+RESULTS:
-: t
 
 
 *** Otras configuraciones
@@ -288,9 +272,6 @@ Eso sí, si hay cambios sin guardar, pregunta antes si se quiere o no actualizar
 #+begin_src elisp
   (fset 'yes-or-no-p 'y-or-n-p)
 #+end_src
-
-#+RESULTS:
-: y-or-n-p
 
 **** No usar dialogs externos para ningún prompt
 Todos los prompts de input se llevarán por Emacs.
@@ -304,9 +285,6 @@ Todos los prompts de input se llevarán por Emacs.
 #+begin_src elisp
   (setq epg-pinentry-mode 'loopback)
 #+end_src
-
-#+RESULTS:
-: loopback
 
 
 
@@ -325,9 +303,6 @@ Ivy por sí solo nos ofrece un sistema de filtrado flexible basado en regex y qu
     :after ivy)
 #+END_SRC
 
-#+RESULTS:
-: [nil 26643 39169 344887 nil elpaca-process-queues nil nil 224000 nil]
-
 
 *** [[https://github.com/abo-abo/swiper?tab=readme-ov-file#counsel][COUNSEL]]: El vanilla+ por excelencia
 
@@ -341,9 +316,6 @@ Counsel mejora varias de los comandos de Emacs integrando Ivy en la interfaz que
     :config (counsel-mode))
 #+END_SRC
 
-#+RESULTS:
-: [nil 26643 39169 366591 nil elpaca-process-queues nil nil 282000 nil]
-
 
 *** [[https://github.com/Yevgnen/ivy-rich][IVY-RICH]]
 
@@ -354,9 +326,6 @@ Mejora de interfaz de Ivy, más informativa y configurable.
     :after (ivy counsel)
     :config (ivy-rich-mode 1))
 #+END_SRC
-
-#+RESULTS:
-: [nil 26643 39169 388288 nil elpaca-process-queues nil nil 632000 nil]
 
 
 
@@ -376,9 +345,6 @@ Sustituye varios de los comandos de ayuda de Emacs (y Counsel!) por otros que of
      (counsel-describe-variable-function #'helpful-variable))
 #+END_SRC
 
-#+RESULTS:
-: [nil 26643 39169 410199 nil elpaca-process-queues nil nil 98000 nil]
-
 
 *** [[https://github.com/justbur/emacs-which-key][WHICH-KEY]]: Descripción de las acciones asociadas a keybinds
 
@@ -394,17 +360,11 @@ Con which-key, se muestra ayuda en un minibuffer si empezamos a introducir una c
   (setq which-key-idle-delay 0.3))
 #+end_src
 
-#+RESULTS:
-: [nil 26643 39169 429380 nil elpaca-process-queues nil nil 149000 nil]
-
 ** EBDB: Gestor de contactos
 
 #+begin_src elisp
   (use-package ebdb)
 #+end_src
-
-#+RESULTS:
-: [nil 26643 39171 536913 nil elpaca-process-queues nil nil 118000 nil]
 
 ** FORMATOS
 
@@ -413,9 +373,6 @@ Con which-key, se muestra ayuda en un minibuffer si empezamos a introducir una c
 #+begin_src elisp
   (use-package pdf-tools)
 #+end_src
-
-#+RESULTS:
-: [nil 26643 39171 561372 nil elpaca-process-queues nil nil 987000 nil]
 
 
 
@@ -435,9 +392,6 @@ El paquete Magit es un wrapper de Git para Emacs.
     ;; Cuando visualizamos diffs en Magit, el buffer ocupa todo el frame
     (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
 #+end_src
-
-#+RESULTS:
-: [nil 26643 39171 583191 nil elpaca-process-queues nil nil 581000 nil]
 
 
 #+RESULTS:
@@ -462,18 +416,12 @@ El paquete Magit es un wrapper de Git para Emacs.
   (setq	projectile-completion-system 'ivy))
 #+end_src
 
-#+RESULTS:
-: [nil 26643 39171 610870 nil elpaca-process-queues nil nil 743000 nil]
-
 **** [[https://github.com/ericdanan/counsel-projectile][COUNSEL-PROJECTILE]]: Integración de Ivy en los buffers de Projectile
 
 #+begin_src elisp
   (use-package counsel-projectile                                  
     :config (counsel-projectile-mode))
 #+end_src
-
-#+RESULTS:
-: [nil 26643 39171 632780 nil elpaca-process-queues nil nil 477000 nil]
 
 
 *** MEJORAS VISUALES PARA LA PROGRAMACIÓN
@@ -496,9 +444,6 @@ El paquete Magit es un wrapper de Git para Emacs.
     :hook (prog-mode . rainbow-delimiters-mode))
 #+end_src
 
-#+RESULTS:
-: [nil 26643 39171 655194 nil elpaca-process-queues nil nil 809000 nil]
-
 ** INTERFAZ
 
 *** DOOM-MODELINE: Línea de modos mejorada
@@ -519,9 +464,6 @@ DOOM-ModeLine mejora visualmente la modeline y le añade información extra de u
       :if (display-graphic-p))
 #+end_src
 
-#+RESULTS:
-: [nil 26643 39171 826842 nil elpaca-process-queues nil nil 958000 nil]
-
 
 
 *** TEMAS
@@ -536,9 +478,6 @@ Uso el tema =modus-vivendi=.
     (load-theme 'modus-vivendi t))
 #+end_src
 
-#+RESULTS:
-: [nil 26643 39171 849278 nil elpaca-process-queues nil nil 178000 nil]
-
 
 *** CENTRADO DE TEXTO
 Se centra el texto para los buffers de Org y org-agenda.
@@ -551,9 +490,6 @@ Se centra el texto para los buffers de Org y org-agenda.
     (add-hook 'org-mode-hook 'olivetti-mode))
 #+end_src
 
-#+RESULTS:
-: [nil 26643 39171 876981 nil elpaca-process-queues nil nil 198000 nil]
-
 
 *** GOLDEN-RATIO.EL: DIVISION DE VENTANAS
 
@@ -564,9 +500,6 @@ La ventana que se está editando se vuelve más grande que el resto automáticam
     :config
     (golden-ratio-mode 1))
 #+end_src
-
-#+RESULTS:
-: [nil 26643 39171 902608 nil elpaca-process-queues nil nil 505000 nil]
 
 
 *** MEJORAS DEL RATÓN
@@ -581,9 +514,6 @@ Sigue siendo una herramienta útil por mucho que quiera evitarlo.
     (iscroll-mode))
 #+end_src
 
-#+RESULTS:
-: [nil 26643 39171 930580 nil elpaca-process-queues nil nil 982000 nil]
-
 
 *** OTRAS CONFIGS DE INTERFAZ
 
@@ -592,9 +522,6 @@ Sigue siendo una herramienta útil por mucho que quiera evitarlo.
   (setq visible-bell t)
   (set-fringe-mode 0)                    ; Activa los márgenes pero los esconde
 #+end_src
-
-#+RESULTS:
-: ((undecorated . t) (fullscreen . maximized) (alpha-background . 80) (vertical-scroll-bars) (left-fringe . 0) (right-fringe . 0))
 
 
 ** ORG: He aquí. He aquí la chicha.
@@ -607,9 +534,6 @@ Sigue siendo una herramienta útil por mucho que quiera evitarlo.
     (setq org-directory "~/org")
     (add-to-list 'org-modules 'org-habit))  
 #+end_src
-
-#+RESULTS:
-: [nil 26643 39171 956906 nil elpaca-process-queues nil nil 881000 nil]
 
 *** ORG-BABEL: PROGRAMACIÓN LITERARIA
 
@@ -626,8 +550,6 @@ Carga =Elisp=, =Java=, =Python= y =SQL=.
      (python . t)
      (sql . t)))
 #+end_src
-
-#+RESULTS:
 
 **** SALTAR CONFIRMACIÓN PREVIA A EJECUTAR BLOQUES DE CÓDIGO
 
@@ -647,9 +569,6 @@ Ficheros que se tendrán en cuenta a la hora de montar la agenda. De momento los
 			       "~/org/gtd/tickler.org"))
 #+end_src
 
-#+RESULTS:
-| ~/org/gtd/inbox.org | ~/org/gtd/gtd.org | ~/org/gtd/tickler.org |
-
 **** INTERFAZ DE LA AGENDA
 
 ***** Agenda diaria
@@ -659,9 +578,6 @@ La agenda por defecto muestra las entradas para un solo día en lugar de la agen
   (setq org-agenda-span 1
 	org-agenda-start-day "+0d")
 #+end_src
-
-#+RESULTS:
-: +0d
 
 ***** Declutter visual
 Configuración de los elementos de la agenda que se muestran o dejan de mostrar. Además quita las lineas que muestra org-agenda por defecto para montar un horario.
@@ -687,9 +603,6 @@ Configuración de los elementos de la agenda que se muestran o dejan de mostrar.
   	    (goto-char (point-min))
   	    (insert "\n\n")))
 #+end_src
-
-#+RESULTS:
-| org-modern-agenda | #[nil ((goto-char (point-min)) (insert |
 
 
 
@@ -717,11 +630,6 @@ Configuración de los elementos de la agenda que se muestran o dejan de mostrar.
       "STOP(s@/!)" ; Estado final para cancelar
       )))
 #+end_src
-
-#+RESULTS:
-| sequence | TODO(t) | NEXT(n) |         |   | DONE(d) |            |            |
-| sequence | WAIT(w) | HOLD(h) | IDEA(i) |   |         | NOTE(o@/!) | STOP(s@/!) |
-
 *** ORG-CAPTURE
 
 - =org-default-notes-file=: Fichero destinatario de las nuevas capturas por defecto.
@@ -752,10 +660,6 @@ Algunas por aquí, otras por fichero externo.
 	   :empty-lines-after 1)))
 #+end_src
 
-#+RESULTS:
-| t | TODO | entry | (file+headline ~/org/gtd/gtd.org INBOX) | ** TODO %? | :empty-lines-after | 1 |
-| c | Cita | entry | (file+headline ~/org/gtd/gtd.org INBOX) | ** %?      |                    |   |
-
 *** TARGETS PARA ORG-REFILE
 A la hora de hacer org-refile se cargan los headings de los ficheros de la agenda para permitir fácil reagendado.
 
@@ -764,9 +668,6 @@ A la hora de hacer org-refile se cargan los headings de los ficheros de la agend
         '((nil :maxlevel . 2)
   	(org-agenda-files :maxlevel . 2)))
 #+end_src
-
-#+RESULTS:
-: ((nil :maxlevel . 2) (org-agenda-files :maxlevel . 2))
 
 *** ORG-ROAM
 Gestor de información con backlincks basado en Emacs Lisp y sostenido por SQLite.
@@ -787,9 +688,6 @@ Gestor de información con backlincks basado en Emacs Lisp y sostenido por SQLit
     (org-roam-db-autosync-mode))
 #+end_src
 
-#+RESULTS:
-: [nil 26643 39172 171541 nil elpaca-process-queues nil nil 701000 nil]
-
 
 
 *** ORG-MODERN
@@ -801,9 +699,6 @@ Mejora visual de los elementos de Org-Mode
     :config
     (global-org-modern-mode))
 #+end_src
-
-#+RESULTS:
-: [nil 26643 39172 203267 nil elpaca-process-queues nil nil 616000 nil]
 
 
 *** ORG-HABIT: Tareas repetidas
@@ -819,9 +714,6 @@ Mejora visual de los elementos de Org-Mode
 	org-hide-emphasis-markers t)
 #+end_src
 
-#+RESULTS:
-: t
-
 **** Escalado automático de imágenes
 
 - =org-image-actual-width=: Determina el ancho de las imágenes en la pantalla.
@@ -829,8 +721,6 @@ Mejora visual de los elementos de Org-Mode
 #+begin_src elisp
   (setq org-image-actual-width nil)
 #+end_src
-
-#+RESULTS:
 
 
 ** YASNIPPET: Plantillas para todo
@@ -841,9 +731,6 @@ Mejora visual de los elementos de Org-Mode
     (setq yas-snippet-dirs '("~/.emacs.d/snippets"))
     (yas-global-mode 1))
 #+end_src
-
-#+RESULTS:
-: [nil 26643 39172 236840 nil elpaca-process-queues nil nil 920000 nil]
 
 ** ATAJOS DE TECLADO: [[https://github.com/noctuid/general.el][GENERAL.EL]] y [[https://github.com/abo-abo/hydra][HYDRA]]
 
@@ -856,9 +743,6 @@ Mejora visual de los elementos de Org-Mode
   (use-package general :ensure (:wait t))
   (use-package hydra :ensure (:wait t))
 #+end_src
-
-#+RESULTS:
-: [nil 26643 39172 293171 nil elpaca-process-queues nil nil 302000 nil]
 
 *** REMAPEOS
 
